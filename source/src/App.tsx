@@ -13,7 +13,6 @@ import {
   Library,
   LockKeyhole,
   Menu,
-  Minus,
   Music2,
   Pause,
   Play,
@@ -33,7 +32,6 @@ import {
   X,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import QRCode from 'qrcode'
 
 const VIDEO_URL =
   'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260611_183632_c311af08-e4b7-458f-81e7-79847a49b3d3.mp4'
@@ -45,13 +43,12 @@ const SBP_RECIPIENT = {
   bank: 'Т-Банк',
   phone: '+79529262155',
   phoneDisplay: '+7 952 926-21-55',
-  recipientHint: 'Имя получателя покажет банк перед подтверждением',
+  recipient: 'Железкин Ефим Сергеевич',
+  contract: '8056786592',
 } as const
 
-const TBANK_TRANSFER_URL = 'https://www.tbank.ru/payments/transfers/'
-// Paste an official personal/merchant payment link issued by the bank here for one-tap payment.
-const SBP_OFFICIAL_PAYMENT_URL = ''
-const PAYMENT_TARGET_URL = SBP_OFFICIAL_PAYMENT_URL.trim() || TBANK_TRANSFER_URL
+const PAYMENT_TARGET_URL = 'https://tbank.ru/cf/7VHb4nMS4up'
+const PAYMENT_QR_IMAGE = './payment-qr-tbank.jpeg'
 
 type View = 'home' | 'anthology' | 'talents' | 'sound-diary' | 'playback-salon' | 'cart'
 type CatalogMode = 'all' | 'latest'
@@ -78,6 +75,9 @@ type Pressing = {
   price: number
   latest: boolean
   gradient: string
+  genre: string
+  sourceTitle: string
+  downloadUrl: string
 }
 
 type DiaryEntry = {
@@ -105,6 +105,9 @@ type PaymentTemplate = {
   bank: string
   phone: string
   phoneDisplay: string
+  recipient: string
+  contract: string
+  paymentUrl: string
   lastAmount: number
   lastOrderId: string
   updatedAt: string
@@ -200,56 +203,99 @@ const TRACKS: Track[] = TRACK_LIBRARY.flatMap(([id, sourceTitle, genre, note, fi
   }))
 })
 
-const PRESSINGS: Pressing[] = [
+const ALBUM_PRICES = [
+  149, 249, 349, 449, 99, 129, 159, 189, 219, 249, 279, 309, 339, 369, 399, 429, 459,
+  489, 519, 549, 579, 609, 639, 669, 699, 729, 759, 789, 819, 849, 899, 949, 999, 1000,
+] as const
+
+function albumGradient(index: number) {
+  const hue = (198 + index * 41) % 360
+  const secondHue = (hue + 54) % 360
+  return `radial-gradient(circle at ${24 + (index % 4) * 15}% ${18 + (index % 3) * 13}%, hsl(${secondHue} 82% 76%) 0, hsl(${hue} 68% 42%) 35%, hsl(${hue} 58% 10%) 82%)`
+}
+
+const FEATURED_PRESSINGS: Pressing[] = [
   {
     id: 'vernal-woods',
     title: 'Vernal woods',
-    artist: 'Helia Marsh',
-    edition: 'Press 04 · 120 copies',
+    artist: 'Frank Edward Nora',
+    edition: `Press 04 · ${CUTS_PER_TAPE} digital cuts`,
     year: 2026,
-    price: 10,
+    price: ALBUM_PRICES[0],
     latest: true,
     gradient: 'radial-gradient(circle at 28% 20%, #d9f99d 0, #4d7c0f 34%, #071a13 78%)',
+    genre: 'Ambient',
+    sourceTitle: 'Ambient Tape No. 27',
+    downloadUrl: `${TRACK_SOURCE_BASE}/New_Midnight_Cassette_27_Ambient.mp3`,
   },
   {
     id: 'still-water',
     title: 'Still water index',
-    artist: 'North Window',
-    edition: 'Press 03 · 180 copies',
+    artist: 'Frank Edward Nora',
+    edition: `Press 03 · ${CUTS_PER_TAPE} digital cuts`,
     year: 2026,
-    price: 35,
+    price: ALBUM_PRICES[1],
     latest: true,
     gradient: 'radial-gradient(circle at 72% 22%, #bae6fd 0, #1d4ed8 35%, #07152d 78%)',
+    genre: 'New age',
+    sourceTitle: 'New Age Tape No. 26',
+    downloadUrl: `${TRACK_SOURCE_BASE}/New_Midnight_Cassette_26_NewAge.mp3`,
   },
   {
     id: 'lichen-letters',
     title: 'Lichen letters',
-    artist: 'Mara Low',
-    edition: 'Press 02 · 150 copies',
+    artist: 'Frank Edward Nora',
+    edition: `Press 02 · ${CUTS_PER_TAPE} digital cuts`,
     year: 2025,
-    price: 70,
+    price: ALBUM_PRICES[2],
     latest: false,
     gradient: 'radial-gradient(circle at 26% 28%, #fef3c7 0, #a16207 38%, #201407 82%)',
+    genre: 'Bossa nova',
+    sourceTitle: 'Bossa Tape No. 25',
+    downloadUrl: `${TRACK_SOURCE_BASE}/New_Midnight_Cassette_25_Bossa.mp3`,
   },
   {
     id: 'night-orchard',
     title: 'Night orchard',
-    artist: 'Ivo Vale',
-    edition: 'Press 01 · 90 copies',
+    artist: 'Frank Edward Nora',
+    edition: `Press 01 · ${CUTS_PER_TAPE} digital cuts`,
     year: 2025,
-    price: 100,
+    price: ALBUM_PRICES[3],
     latest: false,
     gradient: 'radial-gradient(circle at 66% 22%, #ddd6fe 0, #6d28d9 38%, #16072d 80%)',
+    genre: 'Trip-hop',
+    sourceTitle: 'Trip-Hop Tape No. 28',
+    downloadUrl: `${TRACK_SOURCE_BASE}/New_Midnight_Cassette_28_TripHop.mp3`,
   },
 ]
 
+const FEATURED_SOURCE_IDS = new Set(['ambient-27', 'new-age-26', 'bossa-25', 'trip-hop-28'])
+
+const ADDITIONAL_PRESSINGS: Pressing[] = TRACK_LIBRARY
+  .filter(([id]) => !FEATURED_SOURCE_IDS.has(id))
+  .map(([id, sourceTitle, genre, _note, file], index) => ({
+    id: `press-${id}`,
+    title: sourceTitle.replace(/\s+Tape No\.\s+\d+$/i, ''),
+    artist: 'Frank Edward Nora',
+    edition: `Archive pressing · ${CUTS_PER_TAPE} digital cuts`,
+    year: index < 10 ? 2026 : 2025,
+    price: ALBUM_PRICES[index + FEATURED_PRESSINGS.length],
+    latest: index < 8,
+    gradient: albumGradient(index + FEATURED_PRESSINGS.length),
+    genre,
+    sourceTitle,
+    downloadUrl: `${TRACK_SOURCE_BASE}/New_Midnight_Cassette_${file}.mp3`,
+  }))
+
+const PRESSINGS: Pressing[] = [...FEATURED_PRESSINGS, ...ADDITIONAL_PRESSINGS]
+
 
 const PREVIEW_SECONDS = 30
-const TRACKS_PER_PRESSING = Math.floor(TRACKS.length / PRESSINGS.length)
+const TRACKS_PER_PRESSING = CUTS_PER_TAPE
 const PRESSING_TRACK_IDS: Record<string, string[]> = Object.fromEntries(
-  PRESSINGS.map((pressing, index) => [
+  PRESSINGS.map((pressing) => [
     pressing.id,
-    TRACKS.slice(index * TRACKS_PER_PRESSING, index === PRESSINGS.length - 1 ? TRACKS.length : (index + 1) * TRACKS_PER_PRESSING).map((track) => track.id),
+    TRACKS.filter((track) => track.sourceTitle === pressing.sourceTitle).map((track) => track.id),
   ]),
 )
 
@@ -361,6 +407,89 @@ function formatTime(value: number) {
   return hours > 0
     ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
     : `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
+
+function albumFilename(pressing: Pressing) {
+  const safeTitle = pressing.title
+    .normalize('NFKD')
+    .replace(/[^a-zA-Z0-9а-яА-ЯёЁ]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase()
+  return `quietpress-${safeTitle || pressing.id}.mp3`
+}
+
+async function saveAlbumMp3(pressing: Pressing) {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+
+  if (isIOS) {
+    const anchor = document.createElement('a')
+    anchor.href = pressing.downloadUrl
+    anchor.target = '_blank'
+    anchor.rel = 'noopener noreferrer'
+    anchor.click()
+    return false
+  }
+
+  try {
+    const response = await fetch(pressing.downloadUrl, { mode: 'cors' })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const blob = await response.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = objectUrl
+    anchor.download = albumFilename(pressing)
+    anchor.style.display = 'none'
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
+    return true
+  } catch {
+    const anchor = document.createElement('a')
+    anchor.href = pressing.downloadUrl
+    anchor.target = '_blank'
+    anchor.rel = 'noopener noreferrer'
+    anchor.click()
+    return false
+  }
+}
+
+function AlbumDownloadButton({ pressing, compact = false }: { pressing: Pressing; compact?: boolean }) {
+  const [state, setState] = useState<'idle' | 'loading' | 'done' | 'fallback'>('idle')
+
+  const download = async () => {
+    if (state === 'loading') return
+    setState('loading')
+    const saved = await saveAlbumMp3(pressing)
+    setState(saved ? 'done' : 'fallback')
+    window.setTimeout(() => setState('idle'), 2600)
+  }
+
+  const label =
+    state === 'loading'
+      ? 'Preparing MP3…'
+      : state === 'done'
+        ? 'Download started'
+        : state === 'fallback'
+          ? 'MP3 opened'
+          : compact
+            ? 'Album MP3'
+            : 'Download full album MP3'
+
+  return (
+    <button
+      type="button"
+      onClick={() => void download()}
+      disabled={state === 'loading'}
+      className={`${compact ? 'px-3 py-2 text-xs' : 'w-full px-4 py-2.5 text-sm'} flex items-center justify-center gap-2 rounded-xl bg-emerald-500 text-white transition-transform duration-200 enabled:hover:scale-[1.02] enabled:active:scale-[.98] disabled:cursor-wait disabled:opacity-75`}
+      title="Downloads the original CC0 album master as one MP3 file"
+    >
+      {state === 'loading' ? <AudioLines size={15} className="animate-pulse" /> : <Download size={15} />}
+      {label}
+    </button>
+  )
 }
 
 type VideoFrameApi = {
@@ -904,13 +1033,24 @@ function AnthologyPanel({
   openPurchased,
   close,
 }: AnthologyPanelProps) {
-  const pressings = mode === 'latest' ? PRESSINGS.filter((pressing) => pressing.latest) : PRESSINGS
+  const [query, setQuery] = useState('')
+  const [genreFilter, setGenreFilter] = useState('All')
+  const genres = useMemo(() => ['All', ...Array.from(new Set(PRESSINGS.map((pressing) => pressing.genre)))], [])
+
+  const pressings = PRESSINGS.filter((pressing) => {
+    const matchesMode = mode === 'all' || pressing.latest
+    const matchesGenre = genreFilter === 'All' || pressing.genre === genreFilter
+    const matchesQuery = `${pressing.title} ${pressing.artist} ${pressing.genre} ${pressing.sourceTitle}`
+      .toLowerCase()
+      .includes(query.trim().toLowerCase())
+    return matchesMode && matchesGenre && matchesQuery
+  })
 
   return (
-    <PanelShell eyebrow="The catalogue" title="Anthology" icon={<Disc3 size={19} />} close={close}>
-      <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <p className="max-w-xl text-sm leading-relaxed text-white/70 sm:text-base">
-          Each pressing unlocks {TRACKS_PER_PRESSING} full-length digital cuts. Unpurchased tracks remain available as 30-second previews.
+    <PanelShell eyebrow={`${PRESSINGS.length} albums · prices from 99 ₽ to 1,000 ₽`} title="Anthology" icon={<Disc3 size={19} />} close={close}>
+      <div className="mb-5 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+        <p className="max-w-2xl text-sm leading-relaxed text-white/70 sm:text-base">
+          Each album unlocks {TRACKS_PER_PRESSING} full cuts and the original continuous CC0 master as a downloadable MP3. Unpurchased cuts remain available as 30-second previews.
         </p>
         <div className="flex rounded-2xl bg-white/10 p-1">
           <button
@@ -920,7 +1060,7 @@ function AnthologyPanel({
               mode === 'all' ? 'bg-white text-gray-900' : 'text-white/70 hover:text-white'
             }`}
           >
-            All pressings
+            All albums
           </button>
           <button
             type="button"
@@ -934,47 +1074,102 @@ function AnthologyPanel({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {pressings.map((pressing) => {
-          const owned = purchasedPressings.includes(pressing.id)
-          return (
-            <article key={pressing.id} className="rounded-3xl bg-white/[0.08] p-3 ring-1 ring-white/10">
-              <div className="relative">
-                <RecordArtwork pressing={pressing} />
-                {owned && (
-                  <span className="absolute right-3 top-3 flex items-center gap-1 rounded-xl bg-white px-2.5 py-1.5 text-[10px] font-medium text-blue-700 shadow-lg">
-                    <Check size={12} /> Owned
-                  </span>
-                )}
-              </div>
-              <div className="px-1 pb-1 pt-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="truncate text-base">{pressing.title}</h3>
-                    <p className="truncate text-xs text-white/55">{pressing.artist}</p>
-                  </div>
-                  <span className="rounded-lg bg-white/10 px-2 py-1 text-xs">{formatRubles(pressing.price)}</span>
-                </div>
-                <p className="mt-3 text-xs text-white/50">{pressing.edition}</p>
-                <p className="mt-1 text-xs text-white/65">Includes {PRESSING_TRACK_IDS[pressing.id]?.length ?? 0} digital cuts</p>
-                <button
-                  type="button"
-                  onClick={owned ? openPurchased : () => addToCart(pressing.id)}
-                  className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm transition-transform duration-200 hover:scale-[1.02] active:scale-[.98] ${
-                    owned ? 'bg-blue-700 text-white' : 'bg-white text-gray-900'
-                  }`}
-                >
-                  {owned ? <Library size={15} /> : cart[pressing.id] ? <Check size={15} /> : <Plus size={15} />}
-                  {owned ? 'Open purchased music' : cart[pressing.id] ? `Add another · ${cart[pressing.id]} in cart` : 'Add to cart'}
-                </button>
-              </div>
-            </article>
-          )
-        })}
+      <label className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-white/10">
+        <Search size={16} className="text-white/45" />
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search albums, artists or genres"
+          className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
+        />
+      </label>
+
+      <div className="genre-scroll mt-3 flex gap-2 overflow-x-auto pb-2" aria-label="Album genre filters">
+        {genres.map((genre) => (
+          <button
+            key={genre}
+            type="button"
+            onClick={() => setGenreFilter(genre)}
+            className={`shrink-0 rounded-xl px-3 py-2 text-xs transition-colors ${
+              genreFilter === genre
+                ? 'bg-white text-gray-900'
+                : 'bg-white/10 text-white/65 hover:bg-white/[0.15] hover:text-white'
+            }`}
+          >
+            {genre}
+          </button>
+        ))}
       </div>
+
+      <div className="mb-3 mt-1 flex items-center justify-between text-xs text-white/45">
+        <span>{pressings.length} albums visible</span>
+        <span>{purchasedPressings.length} purchased</span>
+      </div>
+
+      {pressings.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-white/15 px-6 py-16 text-center text-sm text-white/50">
+          No albums match this search.
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {pressings.map((pressing) => {
+            const owned = purchasedPressings.includes(pressing.id)
+            const inCart = Boolean(cart[pressing.id])
+            return (
+              <article key={pressing.id} className="rounded-3xl bg-white/[0.08] p-3 ring-1 ring-white/10">
+                <div className="relative">
+                  <RecordArtwork pressing={pressing} />
+                  <span className="absolute bottom-3 left-3 rounded-xl bg-black/35 px-2.5 py-1.5 text-[10px] text-white backdrop-blur-md">
+                    {pressing.genre}
+                  </span>
+                  {owned && (
+                    <span className="absolute right-3 top-3 flex items-center gap-1 rounded-xl bg-white px-2.5 py-1.5 text-[10px] font-medium text-blue-700 shadow-lg">
+                      <Check size={12} /> Owned
+                    </span>
+                  )}
+                </div>
+                <div className="px-1 pb-1 pt-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-base">{pressing.title}</h3>
+                      <p className="truncate text-xs text-white/55">{pressing.artist}</p>
+                    </div>
+                    <span className="shrink-0 rounded-lg bg-white/10 px-2 py-1 text-xs">{formatRubles(pressing.price)}</span>
+                  </div>
+                  <p className="mt-3 text-xs text-white/50">{pressing.edition}</p>
+                  <p className="mt-1 text-xs text-white/65">
+                    {PRESSING_TRACK_IDS[pressing.id]?.length ?? 0} cuts · full album MP3
+                  </p>
+                  <button
+                    type="button"
+                    onClick={owned ? openPurchased : () => addToCart(pressing.id)}
+                    disabled={!owned && inCart}
+                    className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm transition-transform duration-200 enabled:hover:scale-[1.02] enabled:active:scale-[.98] disabled:cursor-default ${
+                      owned
+                        ? 'bg-blue-700 text-white'
+                        : inCart
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-white text-gray-900'
+                    }`}
+                  >
+                    {owned ? <Library size={15} /> : inCart ? <Check size={15} /> : <Plus size={15} />}
+                    {owned ? 'Open purchased music' : inCart ? 'Already in cart' : 'Add album to cart'}
+                  </button>
+                  {owned && (
+                    <div className="mt-2">
+                      <AlbumDownloadButton pressing={pressing} />
+                    </div>
+                  )}
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      )}
     </PanelShell>
   )
 }
+
 
 type TalentsPanelProps = {
   followed: string[]
@@ -1167,6 +1362,7 @@ type PlaybackSalonProps = {
   volume: number
   favorites: string[]
   ownedTrackIds: string[]
+  purchasedPressings: string[]
   initialMode: PlaybackFilter
   loading: boolean
   audioError: string
@@ -1188,6 +1384,7 @@ function PlaybackSalon({
   volume,
   favorites,
   ownedTrackIds,
+  purchasedPressings,
   initialMode,
   loading,
   audioError,
@@ -1222,9 +1419,38 @@ function PlaybackSalon({
 
   useEffect(() => setVisibleCount(72), [query, filterMode, genreFilter])
   const visibleTracks = filteredTracks.slice(0, visibleCount)
+  const purchasedAlbums = PRESSINGS.filter((pressing) => purchasedPressings.includes(pressing.id))
 
   return (
-    <PanelShell eyebrow={`${ownedTrackIds.length} purchased · ${TRACKS.length} total cuts`} title="Playback salon" icon={<Music2 size={19} />} close={close}>
+    <PanelShell eyebrow={`${purchasedAlbums.length} albums · ${ownedTrackIds.length} purchased cuts · ${TRACKS.length} total`} title="Playback salon" icon={<Music2 size={19} />} close={close}>
+      {purchasedAlbums.length > 0 && (
+        <section className="mb-5 rounded-3xl bg-white/[0.08] p-4 ring-1 ring-white/10 sm:p-5">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-white/45">Your downloads</p>
+              <h3 className="mt-1 text-lg">Purchased albums</h3>
+            </div>
+            <span className="text-xs text-white/45">{purchasedAlbums.length} owned</span>
+          </div>
+          <div className="genre-scroll mt-4 flex gap-3 overflow-x-auto pb-2">
+            {purchasedAlbums.map((pressing) => (
+              <article key={pressing.id} className="w-64 shrink-0 rounded-2xl bg-black/15 p-3 ring-1 ring-white/10">
+                <div className="flex items-center gap-3">
+                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl"><RecordArtwork pressing={pressing} /></div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="truncate text-sm">{pressing.title}</h4>
+                    <p className="truncate text-[10px] text-white/45">{pressing.genre} · {TRACKS_PER_PRESSING} cuts</p>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <AlbumDownloadButton pressing={pressing} compact />
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       <div className="grid gap-5 lg:grid-cols-[minmax(0,.9fr)_minmax(320px,.55fr)]">
         <section className="min-w-0">
           <div className="flex flex-col gap-3">
@@ -1447,64 +1673,43 @@ function CartPanel({
 }: CartPanelProps) {
   const [complete, setComplete] = useState(false)
   const [paymentOpen, setPaymentOpen] = useState(false)
-  const [qrDataUrl, setQrDataUrl] = useState('')
-  const [qrError, setQrError] = useState('')
   const [copied, setCopied] = useState<'phone' | 'amount' | 'details' | ''>('')
   const [savedTemplate, setSavedTemplate] = useState<PaymentTemplate | null>(() => readStorage('quietpress-payment-template-v1', null))
   const [unlockedCount, setUnlockedCount] = useState(0)
   const [orderId] = useState(() => `QP-${Date.now().toString(36).toUpperCase().slice(-7)}`)
   const items = PRESSINGS.filter((pressing) => cart[pressing.id] && !purchasedPressings.includes(pressing.id))
-  const total = items.reduce((sum, pressing) => sum + pressing.price * cart[pressing.id], 0)
-  const itemCount = items.reduce((sum, item) => sum + cart[item.id], 0)
+  const total = items.reduce((sum, pressing) => sum + pressing.price, 0)
+  const itemCount = items.length
   const purchasePressingIds = items.map((item) => item.id)
   const purchaseTrackIds = getTrackIdsForPressings(purchasePressingIds)
 
   const paymentPayload = useMemo(
     () =>
       [
-        'quietpress · перевод по СБП',
+        'quietpress · оплата через Т-Банк',
         `Заказ: ${orderId}`,
         `Релизы: ${items.map((item) => item.title).join(', ')}`,
         `Сумма: ${total} RUB`,
         `Банк получателя: ${SBP_RECIPIENT.bank}`,
         `Телефон: ${SBP_RECIPIENT.phone}`,
-        'Получатель: определяется банком перед подтверждением',
+        `Получатель: ${SBP_RECIPIENT.recipient}`,
+        `Номер договора: ${SBP_RECIPIENT.contract}`,
+        `Ссылка: ${PAYMENT_TARGET_URL}`,
       ].join('\n'),
     [items, orderId, total],
   )
 
-  useEffect(() => {
-    if (!paymentOpen || total <= 0) return
-
-    let active = true
-    setQrDataUrl('')
-    setQrError('')
-
-    void QRCode.toDataURL(PAYMENT_TARGET_URL, {
-      errorCorrectionLevel: 'M',
-      margin: 2,
-      width: 640,
-      color: { dark: '#111827', light: '#ffffff' },
-    })
-      .then((dataUrl) => {
-        if (active) setQrDataUrl(dataUrl)
-      })
-      .catch(() => {
-        if (active) setQrError('Не удалось создать QR-код. Используйте кнопку копирования реквизитов.')
-      })
-
-    return () => {
-      active = false
-    }
-  }, [paymentOpen, total])
 
   const saveTemplateAndOpenPayment = () => {
     const template: PaymentTemplate = {
       id: 'tbank-sbp-phone',
-      label: 'quietpress · СБП в Т-Банк',
+      label: 'quietpress · платёжная ссылка Т-Банка',
       bank: SBP_RECIPIENT.bank,
       phone: SBP_RECIPIENT.phone,
       phoneDisplay: SBP_RECIPIENT.phoneDisplay,
+      recipient: SBP_RECIPIENT.recipient,
+      contract: SBP_RECIPIENT.contract,
+      paymentUrl: PAYMENT_TARGET_URL,
       lastAmount: total,
       lastOrderId: orderId,
       updatedAt: new Date().toISOString(),
@@ -1533,7 +1738,7 @@ function CartPanel({
       createdAt: new Date().toISOString(),
       bank: SBP_RECIPIENT.bank,
       phone: SBP_RECIPIENT.phone,
-      recipient: SBP_RECIPIENT.recipientHint,
+      recipient: SBP_RECIPIENT.recipient,
       pressingIds: purchasePressingIds,
       trackIds: purchaseTrackIds,
       status: 'locally-confirmed',
@@ -1555,7 +1760,7 @@ function CartPanel({
           </div>
           <h3 className="mt-5 text-2xl">Music added to your library</h3>
           <p className="mt-2 max-w-sm text-sm leading-relaxed text-white/60">
-            Order {orderId} unlocked {unlockedCount} full cuts on this device. The payment template and receipt were saved locally.
+            Order {orderId} unlocked {unlockedCount} full cuts on this device. Open Purchased albums to download each complete MP3 master.
           </p>
           <div className="mt-6 flex w-full max-w-sm flex-col gap-2 sm:flex-row">
             <button type="button" onClick={openPurchased} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm text-gray-900 transition-transform duration-200 hover:scale-105 active:scale-95">
@@ -1579,8 +1784,8 @@ function CartPanel({
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-700 text-white"><CreditCard size={19} /></div>
               <div>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-white/45">СБП · saved local template</p>
-                <h3 className="text-xl">Перевод по номеру телефона</h3>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-white/45">T-Банк · saved payment template</p>
+                <h3 className="text-xl">Оплата по ссылке или QR</h3>
               </div>
             </div>
 
@@ -1588,7 +1793,7 @@ function CartPanel({
               <div className="mt-5 flex items-start gap-3 rounded-2xl bg-emerald-300/10 p-4 text-xs leading-relaxed text-emerald-50 ring-1 ring-emerald-200/20">
                 <BookmarkCheck size={18} className="mt-0.5 shrink-0" />
                 <p>
-                  Шаблон <strong>{savedTemplate.bank} · {savedTemplate.phoneDisplay}</strong> сохранен в quietpress. При следующем заказе реквизиты будут доступны сразу.
+                  Шаблон <strong>{savedTemplate.bank} · договор {savedTemplate.contract || SBP_RECIPIENT.contract}</strong> сохранён в quietpress. При следующем заказе ссылка и QR будут доступны сразу.
                 </p>
               </div>
             )}
@@ -1598,6 +1803,8 @@ function CartPanel({
               <div className="h-px bg-white/10" />
               <div className="flex items-center justify-between gap-4 text-sm"><span className="text-white/45">Банк</span><span>{SBP_RECIPIENT.bank}</span></div>
               <div className="flex items-center justify-between gap-4 text-sm"><span className="text-white/45">Телефон</span><span>{SBP_RECIPIENT.phoneDisplay}</span></div>
+              <div className="flex items-center justify-between gap-4 text-sm"><span className="text-white/45">Получатель</span><span className="text-right">{SBP_RECIPIENT.recipient}</span></div>
+              <div className="flex items-center justify-between gap-4 text-sm"><span className="text-white/45">Договор</span><span>{SBP_RECIPIENT.contract}</span></div>
               <div className="flex items-center justify-between gap-4 text-sm"><span className="text-white/45">Заказ</span><span>{orderId}</span></div>
               <div className="flex items-center justify-between gap-4 text-sm"><span className="text-white/45">Музыка</span><span>{purchaseTrackIds.length} cuts</span></div>
             </div>
@@ -1614,28 +1821,34 @@ function CartPanel({
               </button>
             </div>
 
-            <a href={PAYMENT_TARGET_URL} target="_blank" rel="noreferrer" onClick={() => void handleCopy('phone')} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-300 px-4 py-3 text-sm text-gray-950 transition-transform duration-200 hover:scale-[1.02] active:scale-[.98]">
-              Скопировать номер и открыть Т-Банк <ExternalLink size={14} />
+            <a href={PAYMENT_TARGET_URL} target="_blank" rel="noreferrer" className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-300 px-4 py-3 text-sm text-gray-950 transition-transform duration-200 hover:scale-[1.02] active:scale-[.98]">
+              Открыть страницу оплаты Т-Банка <ExternalLink size={14} />
             </a>
 
             <div className="mt-5 flex items-start gap-3 rounded-2xl bg-amber-300/10 p-4 text-xs leading-relaxed text-amber-50 ring-1 ring-amber-200/20">
               <ShieldCheck size={17} className="mt-0.5 shrink-0" />
-              <p>Проверьте имя получателя и сумму в банковском приложении. Сайт не получает подтверждение от банка и не может проверить перевод автоматически.</p>
+              <p>Проверьте сумму перед подтверждением. Платёжная ссылка и QR ведут на страницу пополнения договора {SBP_RECIPIENT.contract}. Сайт не получает подтверждение от банка автоматически.</p>
             </div>
           </section>
 
           <aside className="h-fit rounded-3xl bg-white p-5 text-gray-900 shadow-2xl sm:p-6">
             <div className="flex items-center justify-between gap-3">
-              <div><p className="text-[10px] uppercase tracking-[0.2em] text-gray-400">Official T-Bank transfer page</p><h3 className="mt-1 text-lg">Scan to open the bank</h3></div>
+              <div><p className="text-[10px] uppercase tracking-[0.2em] text-gray-400">T-Банк · пополнение договора</p><h3 className="mt-1 text-lg">QR для оплаты</h3></div>
               <QrCode size={22} className="text-blue-700" />
             </div>
-            <div className="mt-5 aspect-square overflow-hidden rounded-3xl bg-gray-100 p-3 ring-1 ring-gray-200">
-              {qrDataUrl ? <img src={qrDataUrl} alt="QR code opening the official T-Bank transfer page" className="h-full w-full rounded-2xl object-contain qr-crisp" /> : qrError ? <div className="flex h-full items-center justify-center p-5 text-center text-sm text-red-600">{qrError}</div> : <div className="flex h-full items-center justify-center text-sm text-gray-400">Creating QR…</div>}
+            <a href={PAYMENT_TARGET_URL} target="_blank" rel="noreferrer" className="mt-5 block overflow-hidden rounded-3xl bg-gray-100 ring-1 ring-gray-200 transition-transform duration-200 hover:scale-[1.01]">
+              <img src={PAYMENT_QR_IMAGE} alt={`QR-код Т-Банка для ${SBP_RECIPIENT.recipient}, договор ${SBP_RECIPIENT.contract}`} className="h-auto w-full object-contain qr-crisp" />
+            </a>
+            <div className="mt-4 rounded-2xl bg-gray-50 px-4 py-3 text-xs leading-relaxed text-gray-600 ring-1 ring-gray-200">
+              <strong className="block text-gray-900">{SBP_RECIPIENT.recipient}</strong>
+              Договор {SBP_RECIPIENT.contract} · сумма заказа {formatRubles(total)}
             </div>
-            <p className="mt-4 text-xs leading-relaxed text-gray-500">QR opens the official transfer page. A true payment QR with automatic status requires a merchant payment link or acquiring integration.</p>
-            {qrDataUrl && <a href={qrDataUrl} download={`quietpress-${orderId}.png`} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 transition-colors hover:bg-gray-50"><Download size={15} /> Download QR</a>}
+            <a href={PAYMENT_TARGET_URL} target="_blank" rel="noreferrer" className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-300 px-4 py-3 text-sm text-gray-950 transition-transform duration-200 hover:scale-[1.02] active:scale-[.98]">
+              Перейти к оплате <ExternalLink size={14} />
+            </a>
+            <a href={PAYMENT_QR_IMAGE} download={`quietpress-payment-${orderId}.jpeg`} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 transition-colors hover:bg-gray-50"><Download size={15} /> Скачать QR</a>
             <button type="button" onClick={confirmPayment} className="mt-2 w-full rounded-xl bg-blue-700 py-3 text-sm text-white transition-transform duration-200 hover:scale-[1.02] active:scale-[.98]">
-              Я оплатил · добавить музыку
+              Я оплатил · добавить альбомы
             </button>
           </aside>
         </div>
@@ -1653,11 +1866,7 @@ function CartPanel({
                 <article key={pressing.id} className="flex items-center gap-4 rounded-2xl bg-white/[0.08] p-3 ring-1 ring-white/10">
                   <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl"><RecordArtwork pressing={pressing} /></div>
                   <div className="min-w-0 flex-1"><h3 className="truncate text-sm">{pressing.title}</h3><p className="truncate text-xs text-white/45">{pressing.artist}</p><p className="mt-2 text-xs text-white/65">{formatRubles(pressing.price)} · {PRESSING_TRACK_IDS[pressing.id]?.length ?? 0} cuts</p></div>
-                  <div className="flex items-center rounded-xl bg-white text-gray-900">
-                    <button type="button" onClick={() => changeQuantity(pressing.id, -1)} className="flex h-9 w-9 items-center justify-center transition-transform duration-200 hover:scale-110 active:scale-95" aria-label="Decrease quantity"><Minus size={14} /></button>
-                    <span className="w-7 text-center text-sm">{cart[pressing.id]}</span>
-                    <button type="button" onClick={() => changeQuantity(pressing.id, 1)} className="flex h-9 w-9 items-center justify-center transition-transform duration-200 hover:scale-110 active:scale-95" aria-label="Increase quantity"><Plus size={14} /></button>
-                  </div>
+                  <button type="button" onClick={() => changeQuantity(pressing.id, -1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white/70 transition-transform duration-200 hover:scale-105 hover:bg-red-500/20 hover:text-red-100 active:scale-95" aria-label="Remove album from cart"><Trash2 size={15} /></button>
                 </article>
               ))
             )}
@@ -1669,12 +1878,12 @@ function CartPanel({
             <div className="mt-5 space-y-3 text-sm">
               <div className="flex justify-between"><span className="text-gray-500">Items</span><span>{itemCount}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Full cuts</span><span>{purchaseTrackIds.length}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Payment</span><span>СБП · Т-Банк</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Payment</span><span>Т-Банк · QR/link</span></div>
               <div className="h-px bg-gray-200" />
               <div className="flex justify-between text-base"><span>Total</span><strong>{formatRubles(total)}</strong></div>
             </div>
             <button type="button" onClick={saveTemplateAndOpenPayment} disabled={items.length === 0} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 py-3 text-sm text-white transition-transform duration-200 enabled:hover:scale-[1.02] enabled:active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40">
-              <QrCode size={16} /> Save template & pay
+              <QrCode size={16} /> Save payment template & pay
             </button>
             <p className="mt-3 text-center text-[10px] leading-relaxed text-gray-400">The template is saved in this browser. Bank-app templates cannot be created by a static website.</p>
           </aside>
@@ -1713,7 +1922,7 @@ export default function App() {
   const currentTrackOwned = ownedTrackSet.has(currentTrack.id)
   const currentPlayableEnd = currentTrackOwned ? currentTrack.endAt : Math.min(currentTrack.endAt, currentTrack.startAt + PREVIEW_SECONDS)
   const currentPlayableDuration = currentPlayableEnd - currentTrack.startAt
-  const cartCount = useMemo(() => Object.values(cart).reduce((sum, quantity) => sum + quantity, 0), [cart])
+  const cartCount = useMemo(() => Object.keys(cart).length, [cart])
 
   useEffect(() => {
     const syncView = () => setView(HASH_VIEW[window.location.hash.slice(1)] ?? 'home')
@@ -1838,18 +2047,17 @@ export default function App() {
 
   const addToCart = useCallback((id: string) => {
     if (purchasedPressings.includes(id)) return
-    setCart((items) => ({ ...items, [id]: (items[id] ?? 0) + 1 }))
+    setCart((items) => (items[id] ? items : { ...items, [id]: 1 }))
   }, [purchasedPressings])
 
   const changeQuantity = useCallback((id: string, delta: number) => {
     setCart((items) => {
-      const quantity = (items[id] ?? 0) + delta
-      if (quantity <= 0) {
+      if (delta < 0) {
         const next = { ...items }
         delete next[id]
         return next
       }
-      return { ...items, [id]: quantity }
+      return items[id] ? items : { ...items, [id]: 1 }
     })
   }, [])
 
@@ -1966,6 +2174,7 @@ export default function App() {
           volume={volume}
           favorites={favorites}
           ownedTrackIds={ownedTrackIds}
+          purchasedPressings={purchasedPressings}
           initialMode={salonMode}
           loading={loading}
           audioError={audioError}

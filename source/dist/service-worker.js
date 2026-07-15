@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quietpress-shell-v4'
+const CACHE_NAME = 'quietpress-shell-v5-albums'
 const APP_SHELL = [
   './',
   './index.html',
@@ -6,7 +6,8 @@ const APP_SHELL = [
   './favicon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './icons/apple-touch-icon.png'
+  './icons/apple-touch-icon.png',
+  './payment-qr-tbank.jpeg'
 ]
 
 self.addEventListener('install', (event) => {

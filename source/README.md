@@ -1,58 +1,53 @@
-# quietpress — GitHub Pages + iOS PWA
+# quietpress — GitHub Pages edition
 
-A static React/Vite music-label site prepared for GitHub Pages. The repository root contains the compiled site; editable sources are in `source/`.
+Статический музыкальный магазин и PWA для GitHub Pages.
 
-## What changed
+## Что добавлено
 
-- payment recipient template is saved automatically in `localStorage` when checkout opens;
-- completed manual checkout saves an order receipt and unlocks purchased music on the current device;
-- each of the four releases unlocks 255 full three-minute cuts;
-- unpurchased cuts play as 30-second previews;
-- Playback Salon now has **All tracks**, **Purchased**, and **Favorites** filters;
-- purchased releases show an **Owned** badge in Anthology;
-- favicon, Apple Touch icon, 192/512 PWA icons, maskable icons and a web app manifest were added;
-- a service worker and iPhone safe-area adjustments were added;
-- the app can be installed from Safari with **Share → Add to Home Screen**.
+- 34 приобретаемых альбома в разных жанрах;
+- цены от 99 ₽ до 1 000 ₽;
+- 1 020 проигрываемых треков-фрагментов;
+- 30-секундное превью до покупки;
+- локальная библиотека приобретённой музыки;
+- скачивание полного альбома одним MP3-файлом после покупки;
+- поиск и фильтрация альбомов и треков по жанру;
+- корзина без ошибочного добавления нескольких копий цифрового альбома;
+- платёжная ссылка и QR Т-Банка, предоставленные владельцем;
+- получатель: Железкин Ефим Сергеевич;
+- номер договора: 8056786592;
+- сохранение шаблона оплаты и чеков в localStorage;
+- PWA-иконки и установка на iPhone через Safari.
 
-## Important payment limitation
+## Важно об оплате
 
-This is still a static GitHub Pages project. A browser cannot create a template inside the T-Bank app or securely verify that a bank transfer arrived. The current flow:
+Проект работает полностью статически на GitHub Pages. Он не имеет серверной части и не получает банковские уведомления. После фактической оплаты пользователь вручную нажимает кнопку «Я оплатил · добавить альбомы». После этого альбомы разблокируются только в текущем браузере и сохраняются в localStorage.
 
-1. saves the T-Bank/phone template inside quietpress on this device;
-2. opens the official T-Bank transfer page and provides copy buttons for number and amount;
-3. unlocks the purchased tracks only after the buyer presses **“Я оплатил · добавить музыку”**;
-4. stores the receipt and owned releases in this browser.
+Для автоматической проверки платежа потребуется сервер и подключённый интернет-эквайринг или СБП для бизнеса с webhook-уведомлениями.
 
-For automatic payment confirmation, connect T-Business acquiring/SBP and verify bank notifications on a backend or serverless function. Do not place acquiring secrets in GitHub Pages source code.
+## Скачивание MP3
 
-## Recipient and test pricing
+Купленный альбом можно скачать из:
 
-- Bank: **Т-Банк**
-- Phone: **+7 952 926-21-55**
-- Test release prices: **10 ₽, 35 ₽, 70 ₽, 100 ₽**
+- карточки альбома в Anthology;
+- блока Purchased albums в Playback salon.
 
-## Deploy from a branch
+На компьютере сайт пытается сохранить MP3 напрямую. На iPhone большой MP3 может открыться в отдельной вкладке — затем используйте «Поделиться» → «Сохранить в Файлы».
 
-1. Upload the contents of this archive to the repository root.
-2. Open **Settings → Pages**.
-3. Select **Deploy from a branch**.
-4. Select `main` and `/ (root)`.
-5. Save and wait for publication.
+## Публикация через Deploy from a branch
 
-## GitHub Actions deployment
+1. Удалите старые файлы из репозитория.
+2. Загрузите содержимое архива в корень репозитория.
+3. Откройте `Settings → Pages`.
+4. Выберите `Deploy from a branch`.
+5. Выберите `main` и `/ (root)`.
 
-The included `.github/workflows/deploy-pages.yml` builds the editable project from `source/`. In **Settings → Pages**, select **GitHub Actions** to use it.
+Корень архива уже содержит готовую production-сборку.
 
-## iPhone installation
+## Публикация через GitHub Actions
 
-1. Open the published site in Safari.
-2. Tap **Share**.
-3. Tap **Add to Home Screen**.
-4. Confirm **Add**.
+В `Settings → Pages` выберите `GitHub Actions`. Workflow `.github/workflows/deploy-pages.yml` установит зависимости из папки `source`, соберёт Vite-проект и опубликует `source/dist`.
 
-The installed PWA uses the quietpress icon, standalone display mode, iPhone safe areas and local storage for favorites, payment template, receipts and purchased music.
-
-## Local development
+## Разработка
 
 ```bash
 cd source
@@ -60,8 +55,12 @@ npm ci
 npm run dev
 ```
 
-Production build:
+Production-сборка:
 
 ```bash
 npm run build
 ```
+
+## Музыка
+
+Аудио используется из открытой коллекции New Midnight Cassette System. В интерфейсе сохранена ссылка на исходную страницу коллекции и указана лицензия CC0 1.0.
