@@ -1,24 +1,22 @@
-# quietpress — GitHub Pages fixed edition
+# quietpress — GitHub Pages edition
 
-This repository works with either GitHub Pages publishing mode:
+A full-screen React/Vite vinyl-label experience with a working catalogue, artist roster, local sound diary, cart and streaming CC0 music player.
 
-## Recommended: Deploy from a branch
+## Fastest deployment: Deploy from a branch
 
-1. Upload **all files and folders from this archive** to the repository root.
-2. Delete old repository files first, especially the previous root `index.html` and `src` folder.
-3. Open **Settings → Pages**.
-4. Under **Build and deployment**, choose **Deploy from a branch**.
-5. Select `main` (or `master`) and `/ (root)`, then save.
+1. Upload the contents of this folder to the root of the repository.
+2. Open **Settings → Pages**.
+3. Select **Deploy from a branch**.
+4. Choose `main` and `/ (root)`.
+5. Save and wait for the Pages build to complete.
 
-The repository root contains a precompiled static site, so GitHub Pages does not need to process TypeScript or Vite source files.
+The repository root already contains the compiled static site. Vite is not required on GitHub Pages.
 
-## Alternative: GitHub Actions
+## GitHub Actions deployment
 
-Under **Settings → Pages**, choose **GitHub Actions**. The included workflow builds the editable Vite project from `source/` and deploys `source/dist`.
+The included `.github/workflows/deploy-pages.yml` builds the editable project from `source/`. In **Settings → Pages**, select **GitHub Actions** to use it.
 
-## Editing the React/Vite source
-
-The editable project is in `source/`:
+## Local development
 
 ```bash
 cd source
@@ -26,14 +24,14 @@ npm install
 npm run dev
 ```
 
-After editing, rebuild with:
+Production build:
 
 ```bash
 npm run build
 ```
 
-For branch-based deployment, copy everything from `source/dist/` back to the repository root.
+Copy the contents of `source/dist/` to the repository root when using branch deployment.
 
-## Why the previous version showed a white screen
+## Music licence
 
-The old root `index.html` referenced `/src/main.tsx`. GitHub Pages serves static files and cannot compile TSX when using **Deploy from a branch**, leaving the React root empty. This edition puts compiled JavaScript and CSS directly in the root.
+The player streams selected tracks from **New Midnight Cassette System** by Frank Edward Nora on Internet Archive. The collection is released under CC0 1.0. A source link is included inside Playback salon.

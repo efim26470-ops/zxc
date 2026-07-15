@@ -1,10 +1,241 @@
-import { useEffect, useRef, useState } from 'react'
-import { BarChart3, Heart, Menu, ShoppingCart, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  AudioLines,
+  BookOpen,
+  Check,
+  Disc3,
+  ExternalLink,
+  Heart,
+  Menu,
+  Minus,
+  Music2,
+  Pause,
+  Play,
+  Plus,
+  Search,
+  ShoppingBag,
+  ShoppingCart,
+  SkipBack,
+  SkipForward,
+  Sparkles,
+  Trash2,
+  UserRound,
+  Volume2,
+  Waves,
+  X,
+} from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 const VIDEO_URL =
   'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260611_183632_c311af08-e4b7-458f-81e7-79847a49b3d3.mp4'
 
-const NAV_LINKS = ['Anthology', 'Talents', 'Sound diary', 'Playback salon']
+const ARCHIVE_SOURCE = 'https://archive.org/details/New_Midnight_Cassette_System'
+
+type View = 'home' | 'anthology' | 'talents' | 'sound-diary' | 'playback-salon' | 'cart'
+type CatalogMode = 'all' | 'latest'
+
+type Track = {
+  id: string
+  title: string
+  artist: string
+  genre: string
+  note: string
+  url: string
+}
+
+type Pressing = {
+  id: string
+  title: string
+  artist: string
+  edition: string
+  year: number
+  price: number
+  latest: boolean
+  gradient: string
+}
+
+type DiaryEntry = {
+  id: string
+  text: string
+  mood: string
+  createdAt: string
+}
+
+const TRACKS: Track[] = [
+  {
+    id: 'ambient-27',
+    title: 'Ambient Tape No. 27',
+    artist: 'Frank Edward Nora',
+    genre: 'Ambient',
+    note: 'Long-form generative ambience',
+    url: 'https://archive.org/download/New_Midnight_Cassette_System/New_Midnight_Cassette_27_Ambient.mp3',
+  },
+  {
+    id: 'new-age-26',
+    title: 'New Age Tape No. 26',
+    artist: 'Frank Edward Nora',
+    genre: 'New age',
+    note: 'Soft synthesizer drift',
+    url: 'https://archive.org/download/New_Midnight_Cassette_System/New_Midnight_Cassette_26_NewAge.mp3',
+  },
+  {
+    id: 'downbeat-09',
+    title: 'Downbeat Tape No. 09',
+    artist: 'Frank Edward Nora',
+    genre: 'Downbeat',
+    note: 'Slow pulse and muted electronics',
+    url: 'https://archive.org/download/New_Midnight_Cassette_System/New_Midnight_Cassette_09_Downbeat.mp3',
+  },
+  {
+    id: 'bossa-25',
+    title: 'Bossa Tape No. 25',
+    artist: 'Frank Edward Nora',
+    genre: 'Bossa',
+    note: 'Warm, unhurried rhythm',
+    url: 'https://archive.org/download/New_Midnight_Cassette_System/New_Midnight_Cassette_25_Bossa.mp3',
+  },
+  {
+    id: 'trip-hop-28',
+    title: 'Trip Hop Tape No. 28',
+    artist: 'Frank Edward Nora',
+    genre: 'Trip hop',
+    note: 'Dusty nocturnal beat study',
+    url: 'https://archive.org/download/New_Midnight_Cassette_System/New_Midnight_Cassette_28_TripHop.mp3',
+  },
+  {
+    id: 'cool-mix-34',
+    title: 'Cool Mix Tape No. 34',
+    artist: 'Frank Edward Nora',
+    genre: 'Electronic',
+    note: 'A loose late-night sequence',
+    url: 'https://archive.org/download/New_Midnight_Cassette_System/New_Midnight_Cassette_34_CoolMix.mp3',
+  },
+]
+
+const PRESSINGS: Pressing[] = [
+  {
+    id: 'vernal-woods',
+    title: 'Vernal woods',
+    artist: 'Helia Marsh',
+    edition: 'Press 04 · 120 copies',
+    year: 2026,
+    price: 34,
+    latest: true,
+    gradient: 'radial-gradient(circle at 28% 20%, #d9f99d 0, #4d7c0f 34%, #071a13 78%)',
+  },
+  {
+    id: 'still-water',
+    title: 'Still water index',
+    artist: 'North Window',
+    edition: 'Press 03 · 180 copies',
+    year: 2026,
+    price: 31,
+    latest: true,
+    gradient: 'radial-gradient(circle at 72% 22%, #bae6fd 0, #1d4ed8 35%, #07152d 78%)',
+  },
+  {
+    id: 'lichen-letters',
+    title: 'Lichen letters',
+    artist: 'Mara Low',
+    edition: 'Press 02 · 150 copies',
+    year: 2025,
+    price: 29,
+    latest: false,
+    gradient: 'radial-gradient(circle at 26% 28%, #fef3c7 0, #a16207 38%, #201407 82%)',
+  },
+  {
+    id: 'night-orchard',
+    title: 'Night orchard',
+    artist: 'Ivo Vale',
+    edition: 'Press 01 · 90 copies',
+    year: 2025,
+    price: 38,
+    latest: false,
+    gradient: 'radial-gradient(circle at 66% 22%, #ddd6fe 0, #6d28d9 38%, #16072d 80%)',
+  },
+]
+
+const ARTISTS = [
+  {
+    name: 'Helia Marsh',
+    role: 'Field recordings · drone',
+    bio: 'Moss-level recordings, low strings and patient tape loops gathered along the Baltic coast.',
+    trackIndex: 0,
+    monogram: 'HM',
+  },
+  {
+    name: 'North Window',
+    role: 'Ambient electronics',
+    bio: 'Slow voltage studies shaped around weather reports, room tone and small analogue systems.',
+    trackIndex: 1,
+    monogram: 'NW',
+  },
+  {
+    name: 'Mara Low',
+    role: 'Acoustic minimalism',
+    bio: 'Sparse guitar figures and close-mic textures that leave silence in the foreground.',
+    trackIndex: 3,
+    monogram: 'ML',
+  },
+  {
+    name: 'Ivo Vale',
+    role: 'Nocturnal rhythm',
+    bio: 'Dusty percussion, dub-space and low-lit melodic fragments for late playback sessions.',
+    trackIndex: 4,
+    monogram: 'IV',
+  },
+]
+
+const NAV_ITEMS: Array<{ label: string; view: Exclude<View, 'home' | 'cart'> }> = [
+  { label: 'Anthology', view: 'anthology' },
+  { label: 'Talents', view: 'talents' },
+  { label: 'Sound diary', view: 'sound-diary' },
+  { label: 'Playback salon', view: 'playback-salon' },
+]
+
+const VIEW_HASH: Record<View, string> = {
+  home: '',
+  anthology: 'anthology',
+  talents: 'talents',
+  'sound-diary': 'sound-diary',
+  'playback-salon': 'playback-salon',
+  cart: 'cart',
+}
+
+const HASH_VIEW: Record<string, View> = {
+  anthology: 'anthology',
+  talents: 'talents',
+  'sound-diary': 'sound-diary',
+  'playback-salon': 'playback-salon',
+  cart: 'cart',
+}
+
+function readStorage<T>(key: string, fallback: T): T {
+  try {
+    const raw = window.localStorage.getItem(key)
+    return raw ? (JSON.parse(raw) as T) : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function writeStorage<T>(key: string, value: T) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // The site remains usable when storage is unavailable.
+  }
+}
+
+function formatTime(value: number) {
+  if (!Number.isFinite(value) || value < 0) return '--:--'
+  const hours = Math.floor(value / 3600)
+  const minutes = Math.floor((value % 3600) / 60)
+  const seconds = Math.floor(value % 60)
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+    : `${minutes}:${String(seconds).padStart(2, '0')}`
+}
 
 type VideoFrameApi = {
   requestVideoFrameCallback?: (
@@ -70,7 +301,6 @@ function BoomerangVideoBg() {
         context.drawImage(video, 0, 0, outputWidth, outputHeight)
         framesRef.current.push(frame)
       } catch {
-        // Keep the original video playing if the remote server disallows canvas capture.
         captureDisabledRef.current = true
         framesRef.current.length = 0
       }
@@ -129,9 +359,7 @@ function BoomerangVideoBg() {
         if (timestamp - previousTimestamp >= frameDuration) {
           const frames = framesRef.current
           const frame = frames[frameIndex]
-          if (frame) {
-            context.drawImage(frame, 0, 0, outputWidth, outputHeight)
-          }
+          if (frame) context.drawImage(frame, 0, 0, outputWidth, outputHeight)
 
           if (frames.length > 1) {
             frameIndex += direction
@@ -153,14 +381,8 @@ function BoomerangVideoBg() {
       loopRequestRef.current = requestAnimationFrame(drawLoop)
     }
 
-    const handleLoadedMetadata = () => {
-      configureDimensions()
-    }
-
-    const handlePlaying = () => {
-      startCapture()
-    }
-
+    const handleLoadedMetadata = () => configureDimensions()
+    const handlePlaying = () => startCapture()
     const handleEnded = () => {
       if (supportsVideoFrameCallback && captureRequestRef.current !== null) {
         videoFrameApi.cancelVideoFrameCallback?.(captureRequestRef.current)
@@ -170,7 +392,6 @@ function BoomerangVideoBg() {
       captureRequestRef.current = null
       startBoomerang()
     }
-
     const handleError = () => setVideoUnavailable(true)
 
     video.addEventListener('loadedmetadata', handleLoadedMetadata)
@@ -178,9 +399,7 @@ function BoomerangVideoBg() {
     video.addEventListener('ended', handleEnded)
     video.addEventListener('error', handleError)
 
-    void video.play().catch(() => {
-      // Muted autoplay is normally permitted; controls are intentionally omitted.
-    })
+    void video.play().catch(() => undefined)
 
     return () => {
       disposed = true
@@ -197,10 +416,7 @@ function BoomerangVideoBg() {
         }
       }
 
-      if (loopRequestRef.current !== null) {
-        cancelAnimationFrame(loopRequestRef.current)
-      }
-
+      if (loopRequestRef.current !== null) cancelAnimationFrame(loopRequestRef.current)
       framesRef.current.length = 0
     }
   }, [])
@@ -225,7 +441,7 @@ function BoomerangVideoBg() {
         className={`h-full w-full object-cover ${isBoomerang ? 'block' : 'hidden'}`}
         aria-hidden="true"
       />
-      <div className="absolute inset-0 bg-black/15" aria-hidden="true" />
+      <div className="absolute inset-0 bg-black/[0.15]" aria-hidden="true" />
     </div>
   )
 }
@@ -250,43 +466,60 @@ function BrandMark() {
   )
 }
 
-function Header() {
+type HeaderProps = {
+  currentView: View
+  cartCount: number
+  navigate: (view: View) => void
+}
+
+function Header({ currentView, cartCount, navigate }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false)
+
+  useEffect(() => setMenuOpen(false), [currentView])
 
   return (
     <header className="absolute inset-x-0 top-0 z-20 px-4 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 md:px-10">
       <div className="relative flex items-center justify-between">
-        <a href="#" className="flex items-center gap-2" aria-label="quietpress home">
+        <button
+          type="button"
+          className="flex items-center gap-2 transition-transform duration-200 hover:scale-[1.03] active:scale-95"
+          aria-label="quietpress home"
+          onClick={() => navigate('home')}
+        >
           <BrandMark />
           <span className="text-base tracking-tight text-white">quietpress</span>
-        </a>
+        </button>
 
         <nav
           className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 md:flex"
           aria-label="Primary navigation"
         >
-          {NAV_LINKS.map((link) => (
-            <a
-              key={link}
-              href={`#${link.toLowerCase().replaceAll(' ', '-')}`}
-              className="whitespace-nowrap text-sm text-white/90 transition-colors hover:text-white"
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.view}
+              type="button"
+              onClick={() => navigate(item.view)}
+              className={`whitespace-nowrap text-sm transition-colors ${
+                currentView === item.view ? 'text-white' : 'text-white/90 hover:text-white'
+              }`}
             >
-              {link}
-            </a>
+              {item.label}
+            </button>
           ))}
         </nav>
 
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={() => navigate('cart')}
             className="flex items-center gap-2 rounded-xl bg-white p-1 pr-3 text-gray-900 transition-transform duration-200 hover:scale-105 active:scale-95 sm:pr-4"
-            aria-label="Open cart, 0 items"
+            aria-label={`Open cart, ${cartCount} items`}
           >
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-700 text-white">
               <ShoppingCart size={14} strokeWidth={2} />
             </span>
-            <span className="hidden text-sm sm:inline">Cart (0)</span>
-            <span className="text-sm sm:hidden">(0)</span>
+            <span className="hidden text-sm sm:inline">Cart ({cartCount})</span>
+            <span className="text-sm sm:hidden">({cartCount})</span>
           </button>
 
           <button
@@ -305,18 +538,18 @@ function Header() {
       {menuOpen && (
         <nav
           id="mobile-navigation"
-          className="liquid-glass mx-0 mt-3 rounded-2xl p-2 md:hidden"
+          className="liquid-glass mt-3 rounded-2xl p-2 md:hidden"
           aria-label="Mobile navigation"
         >
-          {NAV_LINKS.map((link) => (
-            <a
-              key={link}
-              href={`#${link.toLowerCase().replaceAll(' ', '-')}`}
-              onClick={() => setMenuOpen(false)}
-              className="block rounded-xl px-4 py-3 text-sm text-white/90 transition-colors hover:bg-white/10 hover:text-white"
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.view}
+              type="button"
+              onClick={() => navigate(item.view)}
+              className="block w-full rounded-xl px-4 py-3 text-left text-sm text-white/90 transition-colors hover:bg-white/10 hover:text-white"
             >
-              {link}
-            </a>
+              {item.label}
+            </button>
           ))}
         </nav>
       )}
@@ -324,7 +557,11 @@ function Header() {
   )
 }
 
-function HeroContent() {
+type HeroContentProps = {
+  openCatalog: (mode: CatalogMode) => void
+}
+
+function HeroContent({ openCatalog }: HeroContentProps) {
   return (
     <main className="relative z-10 flex h-full flex-col items-center px-4 pt-28 text-center sm:px-6 sm:pt-36 md:pt-44">
       <div
@@ -348,12 +585,14 @@ function HeroContent() {
       <div className="animate-fade-up delay-4 mt-8 flex w-full max-w-sm flex-col gap-3 sm:w-auto sm:max-w-none sm:flex-row">
         <button
           type="button"
+          onClick={() => openCatalog('all')}
           className="rounded-xl bg-white px-7 py-2.5 text-sm text-gray-900 transition-transform duration-200 hover:scale-105 active:scale-95"
         >
           Browse the shelves
         </button>
         <button
           type="button"
+          onClick={() => openCatalog('latest')}
           className="liquid-glass rounded-xl px-7 py-2.5 text-sm text-white transition-transform duration-200 hover:scale-105 active:scale-95"
         >
           Newest arrivals
@@ -363,64 +602,1038 @@ function HeroContent() {
   )
 }
 
-function NowPlaying() {
-  const [liked, setLiked] = useState(false)
+type NowPlayingProps = {
+  track: Track
+  isPlaying: boolean
+  liked: boolean
+  currentTime: number
+  duration: number
+  loading: boolean
+  togglePlayback: () => void
+  previousTrack: () => void
+  nextTrack: () => void
+  toggleLike: () => void
+  seek: (time: number) => void
+  openSalon: () => void
+}
 
+function NowPlaying({
+  track,
+  isPlaying,
+  liked,
+  currentTime,
+  duration,
+  loading,
+  togglePlayback,
+  previousTrack,
+  nextTrack,
+  toggleLike,
+  seek,
+  openSalon,
+}: NowPlayingProps) {
   return (
     <section
-      className="animate-fade-up delay-5 absolute bottom-4 right-4 z-20 w-[min(270px,calc(100vw-2rem))] sm:bottom-6 sm:right-6 sm:w-72 md:bottom-8 md:right-10"
+      className="animate-fade-up delay-5 absolute bottom-4 right-4 z-20 w-[min(292px,calc(100vw-2rem))] sm:bottom-6 sm:right-6 sm:w-72 md:bottom-8 md:right-10"
       aria-label="Now playing"
     >
-      <div className="flex items-center gap-3 rounded-2xl bg-white p-2.5 pr-4 shadow-lg">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-700 text-white">
-          <BarChart3 size={20} strokeWidth={2.5} />
+      <div className="rounded-2xl bg-white p-2.5 pr-4 shadow-lg">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={togglePlayback}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-700 text-white transition-transform duration-200 hover:scale-105 active:scale-95"
+            aria-label={isPlaying ? 'Pause track' : 'Play track'}
+          >
+            {loading ? <AudioLines size={20} className="animate-pulse" /> : isPlaying ? <Pause size={18} /> : <Play size={18} className="translate-x-px" />}
+          </button>
+          <button type="button" onClick={openSalon} className="min-w-0 flex-1 text-left">
+            <p className="truncate text-sm text-gray-900">{track.title}</p>
+            <p className="truncate text-[10px] text-gray-500">{track.artist}</p>
+          </button>
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm text-gray-900">Helia Marsh -- Fern Light</p>
-          <div className="mt-2 h-1 rounded-full bg-gray-200">
-            <div className="h-full w-[30%] rounded-full bg-blue-700" />
-          </div>
-          <div className="mt-1 flex items-center justify-between text-[10px] text-gray-500">
-            <span>0:33</span>
-            <span>-1:21</span>
-          </div>
+
+        <input
+          type="range"
+          min={0}
+          max={duration || 0}
+          value={Math.min(currentTime, duration || 0)}
+          onChange={(event) => seek(Number(event.target.value))}
+          className="player-range mt-2 w-full"
+          aria-label="Track progress"
+          disabled={!duration}
+        />
+        <div className="mt-1 flex items-center justify-between text-[10px] text-gray-500">
+          <span>{formatTime(currentTime)}</span>
+          <span>{duration ? `-${formatTime(Math.max(0, duration - currentTime))}` : '--:--'}</span>
         </div>
       </div>
 
       <div className="mt-2 flex items-center gap-2">
         <button
           type="button"
-          className="flex-1 rounded-2xl bg-white py-2 text-sm text-gray-900 shadow-lg transition-transform duration-200 hover:scale-105 active:scale-95"
+          onClick={previousTrack}
+          className="flex flex-1 items-center justify-center gap-1 rounded-2xl bg-white py-2 text-sm text-gray-900 shadow-lg transition-transform duration-200 hover:scale-105 active:scale-95"
         >
-          Prev
+          <SkipBack size={14} /> Prev
         </button>
         <button
           type="button"
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-blue-700 shadow-lg transition-transform duration-200 hover:scale-110 active:scale-95"
-          onClick={() => setLiked((value) => !value)}
-          aria-label={liked ? 'Unlike track' : 'Like track'}
+          onClick={toggleLike}
+          aria-label={liked ? 'Remove track from favorites' : 'Add track to favorites'}
           aria-pressed={liked}
         >
           <Heart size={16} className={liked ? 'fill-blue-700' : ''} />
         </button>
         <button
           type="button"
-          className="flex-1 rounded-2xl bg-white py-2 text-sm text-gray-900 shadow-lg transition-transform duration-200 hover:scale-105 active:scale-95"
+          onClick={nextTrack}
+          className="flex flex-1 items-center justify-center gap-1 rounded-2xl bg-white py-2 text-sm text-gray-900 shadow-lg transition-transform duration-200 hover:scale-105 active:scale-95"
         >
-          Next
+          Next <SkipForward size={14} />
         </button>
       </div>
     </section>
   )
 }
 
+type PanelShellProps = {
+  eyebrow: string
+  title: string
+  icon: React.ReactNode
+  close: () => void
+  children: React.ReactNode
+}
+
+function PanelShell({ eyebrow, title, icon, close, children }: PanelShellProps) {
+  return (
+    <section
+      className="fixed inset-0 z-30 bg-slate-950/40 p-3 pt-[max(.75rem,env(safe-area-inset-top))] backdrop-blur-md sm:p-5 md:p-8"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) close()
+      }}
+    >
+      <div className="panel-glass animate-panel-in mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-[28px] text-white shadow-2xl">
+        <header className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-4 sm:px-6 md:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-white">
+              {icon}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-white/55">{eyebrow}</p>
+              <h2 className="truncate text-xl tracking-tight sm:text-2xl">{title}</h2>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={close}
+            className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-gray-900 transition-transform duration-200 hover:scale-105 active:scale-95"
+            aria-label="Close panel"
+          >
+            <X size={18} />
+          </button>
+        </header>
+        <div className="panel-scroll min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 md:px-8 md:py-7">
+          {children}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function RecordArtwork({ pressing }: { pressing: Pressing }) {
+  return (
+    <div className="relative aspect-square overflow-hidden rounded-2xl" style={{ background: pressing.gradient }}>
+      <div className="absolute -bottom-[18%] -right-[9%] h-[76%] w-[76%] rounded-full bg-neutral-950 shadow-2xl">
+        <div className="absolute inset-[8%] rounded-full border border-white/10" />
+        <div className="absolute inset-[19%] rounded-full border border-white/10" />
+        <div className="absolute inset-[31%] rounded-full border border-white/10" />
+        <div className="absolute inset-[39%] rounded-full bg-amber-200/80" />
+        <div className="absolute inset-[48%] rounded-full bg-neutral-950" />
+      </div>
+      <div className="absolute left-4 top-4 max-w-[68%]">
+        <p className="text-[10px] uppercase tracking-[0.22em] text-white/65">quietpress</p>
+        <p className="mt-1 text-lg leading-tight text-white">{pressing.title}</p>
+      </div>
+    </div>
+  )
+}
+
+type AnthologyPanelProps = {
+  mode: CatalogMode
+  setMode: (mode: CatalogMode) => void
+  cart: Record<string, number>
+  addToCart: (id: string) => void
+  close: () => void
+}
+
+function AnthologyPanel({ mode, setMode, cart, addToCart, close }: AnthologyPanelProps) {
+  const pressings = mode === 'latest' ? PRESSINGS.filter((pressing) => pressing.latest) : PRESSINGS
+
+  return (
+    <PanelShell eyebrow="The catalogue" title="Anthology" icon={<Disc3 size={19} />} close={close}>
+      <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <p className="max-w-xl text-sm leading-relaxed text-white/70 sm:text-base">
+          Small-run vinyl editions cut for attentive listening. The cart is stored locally and no
+          account is required.
+        </p>
+        <div className="flex rounded-2xl bg-white/10 p-1">
+          <button
+            type="button"
+            onClick={() => setMode('all')}
+            className={`flex-1 rounded-xl px-4 py-2 text-sm transition-colors sm:flex-none ${
+              mode === 'all' ? 'bg-white text-gray-900' : 'text-white/70 hover:text-white'
+            }`}
+          >
+            All pressings
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('latest')}
+            className={`flex-1 rounded-xl px-4 py-2 text-sm transition-colors sm:flex-none ${
+              mode === 'latest' ? 'bg-white text-gray-900' : 'text-white/70 hover:text-white'
+            }`}
+          >
+            New arrivals
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {pressings.map((pressing) => (
+          <article key={pressing.id} className="rounded-3xl bg-white/[0.08] p-3 ring-1 ring-white/10">
+            <RecordArtwork pressing={pressing} />
+            <div className="px-1 pb-1 pt-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="truncate text-base">{pressing.title}</h3>
+                  <p className="truncate text-xs text-white/55">{pressing.artist}</p>
+                </div>
+                <span className="rounded-lg bg-white/10 px-2 py-1 text-xs">€{pressing.price}</span>
+              </div>
+              <p className="mt-3 text-xs text-white/50">{pressing.edition}</p>
+              <button
+                type="button"
+                onClick={() => addToCart(pressing.id)}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-2.5 text-sm text-gray-900 transition-transform duration-200 hover:scale-[1.02] active:scale-[.98]"
+              >
+                {cart[pressing.id] ? <Check size={15} /> : <Plus size={15} />}
+                {cart[pressing.id] ? `Add another · ${cart[pressing.id]} in cart` : 'Add to cart'}
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </PanelShell>
+  )
+}
+
+type TalentsPanelProps = {
+  followed: string[]
+  toggleFollow: (name: string) => void
+  playArtist: (trackIndex: number) => void
+  close: () => void
+}
+
+function TalentsPanel({ followed, toggleFollow, playArtist, close }: TalentsPanelProps) {
+  return (
+    <PanelShell eyebrow="The roster" title="Talents" icon={<UserRound size={19} />} close={close}>
+      <div className="mb-6 max-w-2xl">
+        <p className="text-sm leading-relaxed text-white/70 sm:text-base">
+          Artists working between field sound, slow electronics and tactile acoustic recording.
+          Followed profiles are remembered on this device.
+        </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {ARTISTS.map((artist, index) => {
+          const isFollowed = followed.includes(artist.name)
+          return (
+            <article
+              key={artist.name}
+              className="group rounded-3xl bg-white/[0.08] p-4 ring-1 ring-white/10 sm:p-5"
+            >
+              <div className="flex items-start gap-4">
+                <div
+                  className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl text-xl text-white shadow-lg"
+                  style={{
+                    background: `linear-gradient(145deg, rgba(255,255,255,.25), rgba(37,99,235,.8)), hsl(${205 + index * 38} 62% 24%)`,
+                  }}
+                >
+                  {artist.monogram}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="text-lg">{artist.name}</h3>
+                      <p className="text-xs text-white/50">{artist.role}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleFollow(artist.name)}
+                      className={`rounded-xl px-3 py-1.5 text-xs transition-transform duration-200 hover:scale-105 active:scale-95 ${
+                        isFollowed ? 'bg-blue-700 text-white' : 'bg-white text-gray-900'
+                      }`}
+                    >
+                      {isFollowed ? 'Following' : 'Follow'}
+                    </button>
+                  </div>
+                  <p className="mt-4 text-sm leading-relaxed text-white/65">{artist.bio}</p>
+                  <button
+                    type="button"
+                    onClick={() => playArtist(artist.trackIndex)}
+                    className="mt-4 flex items-center gap-2 text-sm text-white transition-transform duration-200 hover:translate-x-1"
+                  >
+                    <Play size={14} className="fill-white" /> Play a related session
+                  </button>
+                </div>
+              </div>
+            </article>
+          )
+        })}
+      </div>
+    </PanelShell>
+  )
+}
+
+type SoundDiaryPanelProps = {
+  entries: DiaryEntry[]
+  addEntry: (text: string, mood: string) => void
+  removeEntry: (id: string) => void
+  close: () => void
+}
+
+function SoundDiaryPanel({ entries, addEntry, removeEntry, close }: SoundDiaryPanelProps) {
+  const [text, setText] = useState('')
+  const [mood, setMood] = useState('still')
+
+  const submit = () => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    addEntry(trimmed, mood)
+    setText('')
+  }
+
+  return (
+    <PanelShell eyebrow="Private listening notes" title="Sound diary" icon={<BookOpen size={19} />} close={close}>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,.85fr)_minmax(0,1.15fr)]">
+        <section className="rounded-3xl bg-white/[0.08] p-4 ring-1 ring-white/10 sm:p-6">
+          <p className="text-sm leading-relaxed text-white/65">
+            Capture a phrase, a room tone or how a record felt. Entries remain only in this
+            browser.
+          </p>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            {['still', 'open', 'earthy', 'nocturnal'].map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setMood(option)}
+                className={`rounded-xl px-3 py-2 text-xs capitalize transition-colors ${
+                  mood === option ? 'bg-white text-gray-900' : 'bg-white/10 text-white/70 hover:text-white'
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+
+          <textarea
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            onKeyDown={(event) => {
+              if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') submit()
+            }}
+            rows={7}
+            maxLength={420}
+            placeholder="Today the room sounded like…"
+            className="mt-4 w-full resize-none rounded-2xl border border-white/10 bg-black/[0.15] p-4 text-sm leading-relaxed text-white outline-none placeholder:text-white/35 focus:border-white/30"
+          />
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <span className="text-[11px] text-white/40">{text.length}/420 · Ctrl/⌘ + Enter</span>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={!text.trim()}
+              className="rounded-xl bg-white px-4 py-2 text-sm text-gray-900 transition-transform duration-200 enabled:hover:scale-105 enabled:active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Save note
+            </button>
+          </div>
+        </section>
+
+        <section className="min-w-0">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm text-white/70">Recent entries</h3>
+            <span className="text-xs text-white/40">{entries.length} saved</span>
+          </div>
+          <div className="space-y-3">
+            {entries.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-white/15 px-6 py-14 text-center">
+                <Waves className="mx-auto text-white/35" size={26} />
+                <p className="mt-3 text-sm text-white/55">Your first listening note will appear here.</p>
+              </div>
+            ) : (
+              entries.map((entry) => (
+                <article key={entry.id} className="rounded-2xl bg-white/[0.08] p-4 ring-1 ring-white/10">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-white/40">
+                        <span>{entry.mood}</span>
+                        <span>·</span>
+                        <time dateTime={entry.createdAt}>
+                          {new Date(entry.createdAt).toLocaleString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </time>
+                      </div>
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-white/80">{entry.text}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeEntry(entry.id)}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white/55 transition-colors hover:bg-red-500/20 hover:text-red-100"
+                      aria-label="Delete diary entry"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
+    </PanelShell>
+  )
+}
+
+type PlaybackSalonProps = {
+  currentTrackIndex: number
+  isPlaying: boolean
+  currentTime: number
+  duration: number
+  volume: number
+  favorites: string[]
+  loading: boolean
+  audioError: string
+  selectTrack: (index: number) => void
+  togglePlayback: () => void
+  previousTrack: () => void
+  nextTrack: () => void
+  toggleLike: (id: string) => void
+  seek: (time: number) => void
+  setVolume: (value: number) => void
+  close: () => void
+}
+
+function PlaybackSalon({
+  currentTrackIndex,
+  isPlaying,
+  currentTime,
+  duration,
+  volume,
+  favorites,
+  loading,
+  audioError,
+  selectTrack,
+  togglePlayback,
+  previousTrack,
+  nextTrack,
+  toggleLike,
+  seek,
+  setVolume,
+  close,
+}: PlaybackSalonProps) {
+  const [query, setQuery] = useState('')
+  const [favoritesOnly, setFavoritesOnly] = useState(false)
+  const currentTrack = TRACKS[currentTrackIndex]
+
+  const filteredTracks = TRACKS.map((track, index) => ({ track, index })).filter(({ track }) => {
+    const matchesQuery = `${track.title} ${track.artist} ${track.genre}`
+      .toLowerCase()
+      .includes(query.toLowerCase())
+    const matchesFavorites = !favoritesOnly || favorites.includes(track.id)
+    return matchesQuery && matchesFavorites
+  })
+
+  return (
+    <PanelShell eyebrow="CC0 listening room" title="Playback salon" icon={<Music2 size={19} />} close={close}>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,.9fr)_minmax(320px,.55fr)]">
+        <section className="min-w-0">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <label className="flex flex-1 items-center gap-2 rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-white/10">
+              <Search size={16} className="text-white/45" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search the library"
+                className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => setFavoritesOnly((value) => !value)}
+              className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm transition-colors ${
+                favoritesOnly ? 'bg-blue-700 text-white' : 'bg-white/10 text-white/70 hover:text-white'
+              }`}
+            >
+              <Heart size={15} className={favoritesOnly ? 'fill-white' : ''} /> Favorites
+            </button>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {filteredTracks.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/15 px-5 py-12 text-center text-sm text-white/50">
+                No tracks match this view.
+              </div>
+            ) : (
+              filteredTracks.map(({ track, index }) => {
+                const active = index === currentTrackIndex
+                const liked = favorites.includes(track.id)
+                return (
+                  <article
+                    key={track.id}
+                    className={`flex items-center gap-3 rounded-2xl p-3 ring-1 transition-colors ${
+                      active ? 'bg-white/[0.15] ring-white/25' : 'bg-white/[0.07] ring-white/10 hover:bg-white/10'
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => (active ? togglePlayback() : selectTrack(index))}
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 hover:scale-105 active:scale-95 ${
+                        active ? 'bg-blue-700 text-white' : 'bg-white text-gray-900'
+                      }`}
+                      aria-label={active && isPlaying ? 'Pause track' : 'Play track'}
+                    >
+                      {active && loading ? (
+                        <AudioLines size={18} className="animate-pulse" />
+                      ) : active && isPlaying ? (
+                        <Pause size={17} />
+                      ) : (
+                        <Play size={17} className="translate-x-px" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectTrack(index)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <h3 className="truncate text-sm text-white">{track.title}</h3>
+                      <p className="truncate text-xs text-white/45">{track.genre} · {track.note}</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleLike(track.id)}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white transition-transform duration-200 hover:scale-105 active:scale-95"
+                      aria-label={liked ? 'Remove from favorites' : 'Add to favorites'}
+                    >
+                      <Heart size={15} className={liked ? 'fill-white' : ''} />
+                    </button>
+                  </article>
+                )
+              })
+            )}
+          </div>
+        </section>
+
+        <aside className="h-fit rounded-3xl bg-white p-4 text-gray-900 shadow-2xl sm:p-5 lg:sticky lg:top-0">
+          <div className="relative aspect-square overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-blue-800 to-slate-950">
+            <div className="absolute inset-[12%] animate-slow-spin rounded-full bg-neutral-950 shadow-2xl">
+              <div className="absolute inset-[9%] rounded-full border border-white/10" />
+              <div className="absolute inset-[20%] rounded-full border border-white/10" />
+              <div className="absolute inset-[31%] rounded-full border border-white/10" />
+              <div className="absolute inset-[39%] rounded-full bg-blue-600" />
+              <div className="absolute inset-[48%] rounded-full bg-white" />
+            </div>
+            <div className="absolute left-4 top-4 rounded-xl bg-white/[0.15] px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-white backdrop-blur-md">
+              CC0 session
+            </div>
+          </div>
+
+          <div className="mt-5 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h3 className="truncate text-lg">{currentTrack.title}</h3>
+              <p className="truncate text-xs text-gray-500">{currentTrack.artist} · {currentTrack.genre}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => toggleLike(currentTrack.id)}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-blue-700 transition-transform duration-200 hover:scale-110 active:scale-95"
+              aria-label="Toggle favorite"
+            >
+              <Heart size={17} className={favorites.includes(currentTrack.id) ? 'fill-blue-700' : ''} />
+            </button>
+          </div>
+
+          <input
+            type="range"
+            min={0}
+            max={duration || 0}
+            value={Math.min(currentTime, duration || 0)}
+            onChange={(event) => seek(Number(event.target.value))}
+            className="player-range mt-5 w-full"
+            aria-label="Track progress"
+            disabled={!duration}
+          />
+          <div className="mt-1 flex justify-between text-[10px] text-gray-500">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+
+          <div className="mt-5 flex items-center justify-center gap-4">
+            <button
+              type="button"
+              onClick={previousTrack}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-100 transition-transform duration-200 hover:scale-105 active:scale-95"
+              aria-label="Previous track"
+            >
+              <SkipBack size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={togglePlayback}
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-700 text-white shadow-lg transition-transform duration-200 hover:scale-105 active:scale-95"
+              aria-label={isPlaying ? 'Pause track' : 'Play track'}
+            >
+              {loading ? <AudioLines size={22} className="animate-pulse" /> : isPlaying ? <Pause size={21} /> : <Play size={21} className="translate-x-px" />}
+            </button>
+            <button
+              type="button"
+              onClick={nextTrack}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-100 transition-transform duration-200 hover:scale-105 active:scale-95"
+              aria-label="Next track"
+            >
+              <SkipForward size={18} />
+            </button>
+          </div>
+
+          <label className="mt-5 flex items-center gap-3 rounded-2xl bg-gray-100 px-3 py-2.5">
+            <Volume2 size={16} className="text-gray-500" />
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={volume}
+              onChange={(event) => setVolume(Number(event.target.value))}
+              className="volume-range min-w-0 flex-1"
+              aria-label="Volume"
+            />
+            <span className="w-8 text-right text-[10px] text-gray-500">{Math.round(volume * 100)}%</span>
+          </label>
+
+          {audioError && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">{audioError}</p>}
+
+          <a
+            href={ARCHIVE_SOURCE}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 flex items-center justify-between rounded-2xl border border-gray-200 px-3 py-3 text-xs text-gray-600 transition-colors hover:bg-gray-50"
+          >
+            <span>CC0 1.0 · Internet Archive source</span>
+            <ExternalLink size={14} />
+          </a>
+        </aside>
+      </div>
+    </PanelShell>
+  )
+}
+
+type CartPanelProps = {
+  cart: Record<string, number>
+  changeQuantity: (id: string, delta: number) => void
+  clearCart: () => void
+  close: () => void
+}
+
+function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
+  const [complete, setComplete] = useState(false)
+  const items = PRESSINGS.filter((pressing) => cart[pressing.id])
+  const total = items.reduce((sum, pressing) => sum + pressing.price * cart[pressing.id], 0)
+
+  const checkout = () => {
+    if (items.length === 0) return
+    setComplete(true)
+    clearCart()
+  }
+
+  return (
+    <PanelShell eyebrow="Local demo basket" title="Cart" icon={<ShoppingBag size={19} />} close={close}>
+      {complete ? (
+        <div className="mx-auto flex max-w-lg flex-col items-center rounded-3xl bg-white/10 px-6 py-14 text-center ring-1 ring-white/10">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-blue-700">
+            <Check size={24} />
+          </div>
+          <h3 className="mt-5 text-2xl">Reservation recorded</h3>
+          <p className="mt-2 max-w-sm text-sm leading-relaxed text-white/60">
+            This is a static demo, so no payment was taken. The local cart has been cleared.
+          </p>
+          <button
+            type="button"
+            onClick={close}
+            className="mt-6 rounded-xl bg-white px-5 py-2.5 text-sm text-gray-900 transition-transform duration-200 hover:scale-105 active:scale-95"
+          >
+            Return home
+          </button>
+        </div>
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <section className="space-y-3">
+            {items.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-white/15 px-6 py-16 text-center">
+                <ShoppingCart size={28} className="mx-auto text-white/35" />
+                <h3 className="mt-4 text-lg">The cart is quiet</h3>
+                <p className="mt-1 text-sm text-white/50">Add a pressing from the anthology.</p>
+              </div>
+            ) : (
+              items.map((pressing) => (
+                <article key={pressing.id} className="flex items-center gap-4 rounded-2xl bg-white/[0.08] p-3 ring-1 ring-white/10">
+                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl">
+                    <RecordArtwork pressing={pressing} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-sm">{pressing.title}</h3>
+                    <p className="truncate text-xs text-white/45">{pressing.artist}</p>
+                    <p className="mt-2 text-xs text-white/65">€{pressing.price} each</p>
+                  </div>
+                  <div className="flex items-center rounded-xl bg-white text-gray-900">
+                    <button
+                      type="button"
+                      onClick={() => changeQuantity(pressing.id, -1)}
+                      className="flex h-9 w-9 items-center justify-center transition-transform duration-200 hover:scale-110 active:scale-95"
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus size={14} />
+                    </button>
+                    <span className="w-7 text-center text-sm">{cart[pressing.id]}</span>
+                    <button
+                      type="button"
+                      onClick={() => changeQuantity(pressing.id, 1)}
+                      className="flex h-9 w-9 items-center justify-center transition-transform duration-200 hover:scale-110 active:scale-95"
+                      aria-label="Increase quantity"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                </article>
+              ))
+            )}
+          </section>
+
+          <aside className="h-fit rounded-3xl bg-white p-5 text-gray-900 shadow-xl">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-gray-500">
+              <Sparkles size={14} /> Order note
+            </div>
+            <div className="mt-5 space-y-3 text-sm">
+              <div className="flex justify-between"><span className="text-gray-500">Items</span><span>{items.reduce((sum, item) => sum + cart[item.id], 0)}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Shipping</span><span>Calculated later</span></div>
+              <div className="h-px bg-gray-200" />
+              <div className="flex justify-between text-base"><span>Total</span><strong>€{total}</strong></div>
+            </div>
+            <button
+              type="button"
+              onClick={checkout}
+              disabled={items.length === 0}
+              className="mt-5 w-full rounded-xl bg-blue-700 py-3 text-sm text-white transition-transform duration-200 enabled:hover:scale-[1.02] enabled:active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Reserve pressings
+            </button>
+            <p className="mt-3 text-center text-[10px] leading-relaxed text-gray-400">
+              Demonstration checkout only. No backend or payment processor is connected.
+            </p>
+          </aside>
+        </div>
+      )}
+    </PanelShell>
+  )
+}
+
 export default function App() {
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const [view, setView] = useState<View>(() => HASH_VIEW[window.location.hash.slice(1)] ?? 'home')
+  const [catalogMode, setCatalogMode] = useState<CatalogMode>('all')
+  const [cart, setCart] = useState<Record<string, number>>(() => readStorage('quietpress-cart-v2', {}))
+  const [favorites, setFavorites] = useState<string[]>(() => readStorage('quietpress-favorites-v2', []))
+  const [followed, setFollowed] = useState<string[]>(() => readStorage('quietpress-followed-v1', []))
+  const [entries, setEntries] = useState<DiaryEntry[]>(() => readStorage('quietpress-diary-v1', []))
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(() => {
+    const stored = readStorage('quietpress-track-index-v1', 0)
+    return Number.isInteger(stored) && stored >= 0 && stored < TRACKS.length ? stored : 0
+  })
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [volume, setVolumeState] = useState(() => readStorage('quietpress-volume-v1', 0.72))
+  const [loading, setLoading] = useState(false)
+  const [audioError, setAudioError] = useState('')
+
+  const currentTrack = TRACKS[currentTrackIndex]
+  const cartCount = useMemo(() => Object.values(cart).reduce((sum, quantity) => sum + quantity, 0), [cart])
+
+  useEffect(() => {
+    const syncView = () => setView(HASH_VIEW[window.location.hash.slice(1)] ?? 'home')
+    window.addEventListener('hashchange', syncView)
+    window.addEventListener('popstate', syncView)
+    return () => {
+      window.removeEventListener('hashchange', syncView)
+      window.removeEventListener('popstate', syncView)
+    }
+  }, [])
+
+  const navigate = useCallback((nextView: View) => {
+    const hash = VIEW_HASH[nextView]
+    const target = hash ? `#${hash}` : `${window.location.pathname}${window.location.search}`
+    window.history.pushState({}, '', target)
+    setView(nextView)
+  }, [])
+
+  useEffect(() => {
+    if (view === 'home') return
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') navigate('home')
+    }
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [navigate, view])
+
+  useEffect(() => writeStorage('quietpress-cart-v2', cart), [cart])
+  useEffect(() => writeStorage('quietpress-favorites-v2', favorites), [favorites])
+  useEffect(() => writeStorage('quietpress-followed-v1', followed), [followed])
+  useEffect(() => writeStorage('quietpress-diary-v1', entries), [entries])
+  useEffect(() => writeStorage('quietpress-track-index-v1', currentTrackIndex), [currentTrackIndex])
+  useEffect(() => writeStorage('quietpress-volume-v1', volume), [volume])
+
+  const nextTrack = useCallback(() => {
+    setCurrentTrackIndex((index) => (index + 1) % TRACKS.length)
+    setCurrentTime(0)
+    setIsPlaying(true)
+  }, [])
+
+  const previousTrack = useCallback(() => {
+    const audio = audioRef.current
+    if (audio && audio.currentTime > 4) {
+      audio.currentTime = 0
+      setCurrentTime(0)
+      return
+    }
+    setCurrentTrackIndex((index) => (index - 1 + TRACKS.length) % TRACKS.length)
+    setCurrentTime(0)
+    setIsPlaying(true)
+  }, [])
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    setAudioError('')
+    setCurrentTime(0)
+    setDuration(0)
+    audio.src = currentTrack.url
+    audio.load()
+    audio.volume = volume
+
+    if (isPlaying) {
+      setLoading(true)
+      void audio.play().catch(() => {
+        setLoading(false)
+        setIsPlaying(false)
+        setAudioError('Playback was blocked. Press play once to start the stream.')
+      })
+    }
+  }, [currentTrack.url])
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.volume = volume
+  }, [volume])
+
+  const togglePlayback = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    if (audio.paused) {
+      setLoading(true)
+      setAudioError('')
+      void audio.play().then(() => setIsPlaying(true)).catch(() => {
+        setLoading(false)
+        setIsPlaying(false)
+        setAudioError('The remote audio stream could not be started. Check the connection and try again.')
+      })
+    } else {
+      audio.pause()
+      setIsPlaying(false)
+      setLoading(false)
+    }
+  }, [])
+
+  const selectTrack = useCallback((index: number) => {
+    if (index === currentTrackIndex) {
+      const audio = audioRef.current
+      if (audio?.paused) {
+        setLoading(true)
+        void audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false))
+      }
+      return
+    }
+    setCurrentTrackIndex(index)
+    setCurrentTime(0)
+    setIsPlaying(true)
+  }, [currentTrackIndex])
+
+  const seek = useCallback((time: number) => {
+    const audio = audioRef.current
+    if (!audio || !Number.isFinite(time)) return
+    audio.currentTime = time
+    setCurrentTime(time)
+  }, [])
+
+  const setVolume = useCallback((value: number) => {
+    setVolumeState(Math.max(0, Math.min(1, value)))
+  }, [])
+
+  const toggleLike = useCallback((trackId: string) => {
+    setFavorites((items) => items.includes(trackId) ? items.filter((id) => id !== trackId) : [...items, trackId])
+  }, [])
+
+  const addToCart = useCallback((id: string) => {
+    setCart((items) => ({ ...items, [id]: (items[id] ?? 0) + 1 }))
+  }, [])
+
+  const changeQuantity = useCallback((id: string, delta: number) => {
+    setCart((items) => {
+      const quantity = (items[id] ?? 0) + delta
+      if (quantity <= 0) {
+        const next = { ...items }
+        delete next[id]
+        return next
+      }
+      return { ...items, [id]: quantity }
+    })
+  }, [])
+
+  const openCatalog = useCallback((mode: CatalogMode) => {
+    setCatalogMode(mode)
+    navigate('anthology')
+  }, [navigate])
+
+  const playArtist = useCallback((trackIndex: number) => {
+    selectTrack(trackIndex)
+    navigate('playback-salon')
+  }, [navigate, selectTrack])
+
+  const toggleFollow = useCallback((name: string) => {
+    setFollowed((items) => items.includes(name) ? items.filter((item) => item !== name) : [...items, name])
+  }, [])
+
+  const addEntry = useCallback((text: string, mood: string) => {
+    setEntries((items) => [
+      { id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, text, mood, createdAt: new Date().toISOString() },
+      ...items,
+    ])
+  }, [])
+
+  const removeEntry = useCallback((id: string) => {
+    setEntries((items) => items.filter((entry) => entry.id !== id))
+  }, [])
+
   return (
     <div className="relative h-screen w-full overflow-hidden">
+      <audio
+        ref={audioRef}
+        preload="metadata"
+        onLoadStart={() => setLoading(true)}
+        onCanPlay={() => setLoading(false)}
+        onPlaying={() => {
+          setIsPlaying(true)
+          setLoading(false)
+        }}
+        onPause={() => setIsPlaying(false)}
+        onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+        onDurationChange={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
+        onEnded={nextTrack}
+        onError={() => {
+          setLoading(false)
+          setIsPlaying(false)
+          setAudioError('The Internet Archive stream is temporarily unavailable. Try another track or reload later.')
+        }}
+      />
+
       <BoomerangVideoBg />
-      <Header />
-      <HeroContent />
-      <NowPlaying />
+      <Header currentView={view} cartCount={cartCount} navigate={navigate} />
+      <HeroContent openCatalog={openCatalog} />
+      <NowPlaying
+        track={currentTrack}
+        isPlaying={isPlaying}
+        liked={favorites.includes(currentTrack.id)}
+        currentTime={currentTime}
+        duration={duration}
+        loading={loading}
+        togglePlayback={togglePlayback}
+        previousTrack={previousTrack}
+        nextTrack={nextTrack}
+        toggleLike={() => toggleLike(currentTrack.id)}
+        seek={seek}
+        openSalon={() => navigate('playback-salon')}
+      />
+
+      {view === 'anthology' && (
+        <AnthologyPanel
+          mode={catalogMode}
+          setMode={setCatalogMode}
+          cart={cart}
+          addToCart={addToCart}
+          close={() => navigate('home')}
+        />
+      )}
+      {view === 'talents' && (
+        <TalentsPanel
+          followed={followed}
+          toggleFollow={toggleFollow}
+          playArtist={playArtist}
+          close={() => navigate('home')}
+        />
+      )}
+      {view === 'sound-diary' && (
+        <SoundDiaryPanel
+          entries={entries}
+          addEntry={addEntry}
+          removeEntry={removeEntry}
+          close={() => navigate('home')}
+        />
+      )}
+      {view === 'playback-salon' && (
+        <PlaybackSalon
+          currentTrackIndex={currentTrackIndex}
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          duration={duration}
+          volume={volume}
+          favorites={favorites}
+          loading={loading}
+          audioError={audioError}
+          selectTrack={selectTrack}
+          togglePlayback={togglePlayback}
+          previousTrack={previousTrack}
+          nextTrack={nextTrack}
+          toggleLike={toggleLike}
+          seek={seek}
+          setVolume={setVolume}
+          close={() => navigate('home')}
+        />
+      )}
+      {view === 'cart' && (
+        <CartPanel
+          cart={cart}
+          changeQuantity={changeQuantity}
+          clearCart={() => setCart({})}
+          close={() => navigate('home')}
+        />
+      )}
     </div>
   )
 }
