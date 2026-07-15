@@ -11,6 +11,14 @@ Production build:
 npm run build
 ```
 
-The output is written to `dist/`. The parent repository root contains a compiled copy for branch-based GitHub Pages deployment.
+The output is written to `dist/`.
 
-Features include 34 CC0 genre sessions from Internet Archive, search and genre filters, favorites, cart prices between 10 ₽ and 100 ₽, and a locally generated test СБП QR checkout. Payment settings are stored in `SBP_RECIPIENT` inside `src/App.tsx`.
+## Main configuration
+
+`src/App.tsx` contains:
+
+- `SBP_RECIPIENT` — bank and phone;
+- `SBP_OFFICIAL_PAYMENT_URL` — optional official payment link issued by a bank/acquirer;
+- the 34-source music library and generation of 1,020 three-minute CC0 cuts.
+
+Without an official payment link, checkout uses the official Т-Банк transfer page and a manual copy/open workflow. A valid universal СБП QR cannot be generated from a phone number alone.

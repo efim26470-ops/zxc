@@ -42,8 +42,13 @@ const SBP_RECIPIENT = {
   bank: 'Т-Банк',
   phone: '+79529262155',
   phoneDisplay: '+7 952 926-21-55',
-  name: 'Ефим Железкин',
+  recipientHint: 'Имя получателя покажет банк перед подтверждением',
 } as const
+
+const TBANK_TRANSFER_URL = 'https://www.tbank.ru/payments/transfers/'
+// Paste an official personal/merchant payment link issued by the bank here for one-tap payment.
+const SBP_OFFICIAL_PAYMENT_URL = ''
+const PAYMENT_TARGET_URL = SBP_OFFICIAL_PAYMENT_URL.trim() || TBANK_TRANSFER_URL
 
 type View = 'home' | 'anthology' | 'talents' | 'sound-diary' | 'playback-salon' | 'cart'
 type CatalogMode = 'all' | 'latest'
@@ -55,6 +60,9 @@ type Track = {
   genre: string
   note: string
   url: string
+  sourceTitle: string
+  startAt: number
+  endAt: number
 }
 
 type Pressing = {
@@ -121,14 +129,58 @@ const TRACK_LIBRARY = [
   ['cool-mix-34', 'Cool Mix Tape No. 34', 'Electronic mix', 'A loose late-night sequence', '34_CoolMix'],
 ] as const
 
-const TRACKS: Track[] = TRACK_LIBRARY.map(([id, title, genre, note, file]) => ({
-  id,
-  title,
-  artist: 'Frank Edward Nora',
-  genre,
-  note,
-  url: `${TRACK_SOURCE_BASE}/New_Midnight_Cassette_${file}.mp3`,
-}))
+const CUT_NAMES = [
+  'First light',
+  'Low tide',
+  'Pine signal',
+  'Blue hour',
+  'Soft circuit',
+  'Rain index',
+  'Quiet engine',
+  'Glass field',
+  'Night garden',
+  'Open window',
+  'Distant rooms',
+  'Slow current',
+  'Moss radio',
+  'Silver path',
+  'Afterimage',
+  'Warm static',
+  'Cloud archive',
+  'Last lantern',
+  'Coastal wire',
+  'Stone memory',
+  'Hidden station',
+  'Lunar shelf',
+  'Green corridor',
+  'Paper horizon',
+  'Faint orbit',
+  'Winter signal',
+  'Blackwater bloom',
+  'Echo chamber',
+  'Final clearing',
+  'Dawn return',
+] as const
+
+const CUTS_PER_TAPE = CUT_NAMES.length
+const CUT_LENGTH_SECONDS = 3 * 60
+
+const TRACKS: Track[] = TRACK_LIBRARY.flatMap(([id, sourceTitle, genre, note, file]) => {
+  const tapeName = sourceTitle.replace(/\s+Tape No\.\s+\d+$/i, '')
+  const url = `${TRACK_SOURCE_BASE}/New_Midnight_Cassette_${file}.mp3`
+
+  return CUT_NAMES.map((cutName, cutIndex) => ({
+    id: `${id}-cut-${String(cutIndex + 1).padStart(2, '0')}`,
+    title: `${tapeName} · ${cutName}`,
+    artist: 'Frank Edward Nora',
+    genre,
+    note: `${note} · cut ${cutIndex + 1}/${CUTS_PER_TAPE}`,
+    url,
+    sourceTitle,
+    startAt: cutIndex * CUT_LENGTH_SECONDS,
+    endAt: (cutIndex + 1) * CUT_LENGTH_SECONDS,
+  }))
+})
 
 const PRESSINGS: Pressing[] = [
   {
@@ -178,28 +230,28 @@ const ARTISTS = [
     name: 'Helia Marsh',
     role: 'Field recordings · drone',
     bio: 'Moss-level recordings, low strings and patient tape loops gathered along the Baltic coast.',
-    trackIndex: 26,
+    trackIndex: 26 * CUTS_PER_TAPE,
     monogram: 'HM',
   },
   {
     name: 'North Window',
     role: 'Ambient electronics',
     bio: 'Slow voltage studies shaped around weather reports, room tone and small analogue systems.',
-    trackIndex: 25,
+    trackIndex: 25 * CUTS_PER_TAPE,
     monogram: 'NW',
   },
   {
     name: 'Mara Low',
     role: 'Acoustic minimalism',
     bio: 'Sparse guitar figures and close-mic textures that leave silence in the foreground.',
-    trackIndex: 24,
+    trackIndex: 24 * CUTS_PER_TAPE,
     monogram: 'ML',
   },
   {
     name: 'Ivo Vale',
     role: 'Nocturnal rhythm',
     bio: 'Dusty percussion, dub-space and low-lit melodic fragments for late playback sessions.',
-    trackIndex: 27,
+    trackIndex: 27 * CUTS_PER_TAPE,
     monogram: 'IV',
   },
 ]
@@ -1093,6 +1145,7 @@ function PlaybackSalon({
   const [query, setQuery] = useState('')
   const [favoritesOnly, setFavoritesOnly] = useState(false)
   const [genreFilter, setGenreFilter] = useState('All')
+  const [visibleCount, setVisibleCount] = useState(72)
   const currentTrack = TRACKS[currentTrackIndex]
   const genres = useMemo(() => ['All', ...Array.from(new Set(TRACKS.map((track) => track.genre)))], [])
 
@@ -1105,8 +1158,11 @@ function PlaybackSalon({
     return matchesQuery && matchesFavorites && matchesGenre
   })
 
+  useEffect(() => setVisibleCount(72), [query, favoritesOnly, genreFilter])
+  const visibleTracks = filteredTracks.slice(0, visibleCount)
+
   return (
-    <PanelShell eyebrow="34 public-domain genre sessions" title="Playback salon" icon={<Music2 size={19} />} close={close}>
+    <PanelShell eyebrow={`${TRACKS.length} public-domain cuts across 34 genres`} title="Playback salon" icon={<Music2 size={19} />} close={close}>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,.9fr)_minmax(320px,.55fr)]">
         <section className="min-w-0">
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -1158,7 +1214,7 @@ function PlaybackSalon({
                 No tracks match this view.
               </div>
             ) : (
-              filteredTracks.map(({ track, index }) => {
+              visibleTracks.map(({ track, index }) => {
                 const active = index === currentTrackIndex
                 const liked = favorites.includes(track.id)
                 return (
@@ -1205,6 +1261,16 @@ function PlaybackSalon({
               })
             )}
           </div>
+
+          {visibleCount < filteredTracks.length && (
+            <button
+              type="button"
+              onClick={() => setVisibleCount((count) => count + 72)}
+              className="mt-3 w-full rounded-2xl bg-white/10 px-4 py-3 text-sm text-white ring-1 ring-white/10 transition-colors hover:bg-white/[0.16]"
+            >
+              Load 72 more · {filteredTracks.length - visibleCount} remaining
+            </button>
+          )}
         </section>
 
         <aside className="h-fit rounded-3xl bg-white p-4 text-gray-900 shadow-2xl sm:p-5 lg:sticky lg:top-0">
@@ -1301,7 +1367,7 @@ function PlaybackSalon({
             rel="noreferrer"
             className="mt-4 flex items-center justify-between rounded-2xl border border-gray-200 px-3 py-3 text-xs text-gray-600 transition-colors hover:bg-gray-50"
           >
-            <span>CC0 1.0 · Internet Archive source</span>
+            <span>CC0 1.0 · 55 hours sliced into 1,020 playable cuts</span>
             <ExternalLink size={14} />
           </a>
         </aside>
@@ -1322,7 +1388,7 @@ function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState('')
   const [qrError, setQrError] = useState('')
-  const [copied, setCopied] = useState<'phone' | 'details' | ''>('')
+  const [copied, setCopied] = useState<'phone' | 'amount' | 'details' | ''>('')
   const [orderId] = useState(() => `QP-${Date.now().toString(36).toUpperCase().slice(-7)}`)
   const items = PRESSINGS.filter((pressing) => cart[pressing.id])
   const total = items.reduce((sum, pressing) => sum + pressing.price * cart[pressing.id], 0)
@@ -1336,7 +1402,7 @@ function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
         `Сумма: ${total} RUB`,
         `Банк получателя: ${SBP_RECIPIENT.bank}`,
         `Телефон: ${SBP_RECIPIENT.phone}`,
-        `Получатель: ${SBP_RECIPIENT.name}`,
+        `Получатель: определяется банком перед подтверждением`,
         'Назначение: quietpress order',
       ].join('\n'),
     [orderId, total],
@@ -1349,7 +1415,7 @@ function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
     setQrDataUrl('')
     setQrError('')
 
-    void QRCode.toDataURL(paymentPayload, {
+    void QRCode.toDataURL(PAYMENT_TARGET_URL, {
       errorCorrectionLevel: 'M',
       margin: 2,
       width: 640,
@@ -1368,11 +1434,16 @@ function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
     return () => {
       active = false
     }
-  }, [paymentOpen, paymentPayload, total])
+  }, [paymentOpen, total])
 
-  const handleCopy = async (kind: 'phone' | 'details') => {
+  const handleCopy = async (kind: 'phone' | 'amount' | 'details') => {
     try {
-      await copyText(kind === 'phone' ? SBP_RECIPIENT.phone : paymentPayload)
+      const value = kind === 'phone'
+        ? SBP_RECIPIENT.phone
+        : kind === 'amount'
+          ? String(total)
+          : paymentPayload
+      await copyText(value)
       setCopied(kind)
       window.setTimeout(() => setCopied(''), 1600)
     } catch {
@@ -1388,7 +1459,7 @@ function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
       createdAt: new Date().toISOString(),
       bank: SBP_RECIPIENT.bank,
       phone: SBP_RECIPIENT.phone,
-      recipient: SBP_RECIPIENT.name,
+      recipient: SBP_RECIPIENT.recipientHint,
     }
     writeStorage('quietpress-sbp-receipts-v1', [receipt, ...receipts].slice(0, 20))
     clearCart()
@@ -1432,7 +1503,7 @@ function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
                 <CreditCard size={19} />
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-white/45">СБП · тестовая оплата</p>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-white/45">СБП · ручной перевод</p>
                 <h3 className="text-xl">Перевод по номеру телефона</h3>
               </div>
             </div>
@@ -1453,7 +1524,7 @@ function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
               </div>
               <div className="flex items-center justify-between gap-4 text-sm">
                 <span className="text-white/45">Получатель</span>
-                <span className="text-right">{SBP_RECIPIENT.name}</span>
+                <span className="max-w-[220px] text-right text-white/70">{SBP_RECIPIENT.recipientHint}</span>
               </div>
               <div className="flex items-center justify-between gap-4 text-sm">
                 <span className="text-white/45">Заказ</span>
@@ -1461,39 +1532,48 @@ function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
               <button
                 type="button"
                 onClick={() => void handleCopy('phone')}
-                className="flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm text-gray-900 transition-transform duration-200 hover:scale-[1.02] active:scale-[.98]"
+                className="flex items-center justify-center gap-2 rounded-xl bg-white px-3 py-3 text-sm text-gray-900 transition-transform duration-200 hover:scale-[1.02] active:scale-[.98]"
               >
                 {copied === 'phone' ? <Check size={15} /> : <Copy size={15} />}
-                {copied === 'phone' ? 'Номер скопирован' : 'Копировать номер'}
+                {copied === 'phone' ? 'Номер готов' : 'Номер'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCopy('amount')}
+                className="flex items-center justify-center gap-2 rounded-xl bg-white px-3 py-3 text-sm text-gray-900 transition-transform duration-200 hover:scale-[1.02] active:scale-[.98]"
+              >
+                {copied === 'amount' ? <Check size={15} /> : <Copy size={15} />}
+                {copied === 'amount' ? 'Сумма готова' : 'Сумма'}
               </button>
               <button
                 type="button"
                 onClick={() => void handleCopy('details')}
-                className="flex items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-3 text-sm text-white ring-1 ring-white/10 transition-transform duration-200 hover:scale-[1.02] active:scale-[.98]"
+                className="flex items-center justify-center gap-2 rounded-xl bg-white/10 px-3 py-3 text-sm text-white ring-1 ring-white/10 transition-transform duration-200 hover:scale-[1.02] active:scale-[.98]"
               >
                 {copied === 'details' ? <Check size={15} /> : <Copy size={15} />}
-                {copied === 'details' ? 'Реквизиты скопированы' : 'Копировать всё'}
+                {copied === 'details' ? 'Всё готово' : 'Все данные'}
               </button>
             </div>
 
             <a
-              href="https://www.tbank.ru/"
+              href={PAYMENT_TARGET_URL}
               target="_blank"
               rel="noreferrer"
+              onClick={() => void handleCopy('phone')}
               className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-300 px-4 py-3 text-sm text-gray-950 transition-transform duration-200 hover:scale-[1.02] active:scale-[.98]"
             >
-              Открыть сайт Т-Банка <ExternalLink size={14} />
+              Скопировать номер и открыть перевод в Т-Банке <ExternalLink size={14} />
             </a>
 
             <div className="mt-5 flex items-start gap-3 rounded-2xl bg-amber-300/10 p-4 text-xs leading-relaxed text-amber-50 ring-1 ring-amber-200/20">
               <ShieldCheck size={17} className="mt-0.5 shrink-0" />
               <p>
                 Перед переводом обязательно проверьте имя получателя в банковском приложении. Это
-                статический тестовый checkout: сайт не видит операцию и не подтверждает поступление денег.
+                ручной перевод: сначала сверьте имя, затем сумму и только после этого подтверждайте операцию. Сайт не видит банковскую транзакцию.
               </p>
             </div>
           </section>
@@ -1501,15 +1581,15 @@ function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
           <aside className="h-fit rounded-3xl bg-white p-5 text-gray-900 shadow-2xl sm:p-6">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400">Payment details QR</p>
-                <h3 className="mt-1 text-lg">Scan with a phone</h3>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400">Official T-Bank transfer page</p>
+                <h3 className="mt-1 text-lg">Scan to open the bank</h3>
               </div>
               <QrCode size={22} className="text-blue-700" />
             </div>
 
             <div className="mt-5 aspect-square overflow-hidden rounded-3xl bg-gray-100 p-3 ring-1 ring-gray-200">
               {qrDataUrl ? (
-                <img src={qrDataUrl} alt={`QR payment details for ${formatRubles(total)}`} className="h-full w-full rounded-2xl object-contain qr-crisp" />
+                <img src={qrDataUrl} alt="QR code opening the official T-Bank transfer page" className="h-full w-full rounded-2xl object-contain qr-crisp" />
               ) : qrError ? (
                 <div className="flex h-full items-center justify-center p-5 text-center text-sm text-red-600">{qrError}</div>
               ) : (
@@ -1518,8 +1598,8 @@ function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
             </div>
 
             <p className="mt-4 text-xs leading-relaxed text-gray-500">
-              QR stores the recipient, phone, bank, amount and order number. It is not an official
-              merchant QR issued by the bank, so the transfer is completed manually through СБП.
+              Этот QR открывает официальную страницу переводов Т-Банка. После сканирования введите
+              скопированный номер и сумму. Автоматический СБП-QR может выдать только банк или эквайринг.
             </p>
 
             {qrDataUrl && (
@@ -1528,7 +1608,7 @@ function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
                 download={`quietpress-${orderId}.png`}
                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 transition-colors hover:bg-gray-50"
               >
-                <Download size={15} /> Download QR
+                <Download size={15} /> Скачать QR входа в Т-Банк
               </a>
             )}
 
@@ -1602,10 +1682,10 @@ function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
               disabled={items.length === 0}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 py-3 text-sm text-white transition-transform duration-200 enabled:hover:scale-[1.02] enabled:active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <QrCode size={16} /> Pay by SBP QR
+              <QrCode size={16} /> Оплатить через СБП
             </button>
             <p className="mt-3 text-center text-[10px] leading-relaxed text-gray-400">
-              Test prices only. Payment confirmation is stored locally and is not checked by a server.
+              Тестовые цены. Перевод выполняется вручную в банковском приложении; сайт не проверяет поступление.
             </p>
           </aside>
         </div>
@@ -1617,6 +1697,7 @@ function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
 
 export default function App() {
   const audioRef = useRef<HTMLAudioElement>(null)
+  const segmentAdvanceRef = useRef(false)
   const [view, setView] = useState<View>(() => HASH_VIEW[window.location.hash.slice(1)] ?? 'home')
   const [catalogMode, setCatalogMode] = useState<CatalogMode>('all')
   const [cart, setCart] = useState<Record<string, number>>(() => readStorage('quietpress-cart-v2', {}))
@@ -1678,36 +1759,28 @@ export default function App() {
 
   const previousTrack = useCallback(() => {
     const audio = audioRef.current
-    if (audio && audio.currentTime > 4) {
-      audio.currentTime = 0
+    if (audio && audio.currentTime > currentTrack.startAt + 4) {
+      audio.currentTime = currentTrack.startAt
       setCurrentTime(0)
       return
     }
     setCurrentTrackIndex((index) => (index - 1 + TRACKS.length) % TRACKS.length)
     setCurrentTime(0)
     setIsPlaying(true)
-  }, [])
+  }, [currentTrack.startAt])
 
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
 
+    segmentAdvanceRef.current = false
     setAudioError('')
     setCurrentTime(0)
-    setDuration(0)
+    setDuration(currentTrack.endAt - currentTrack.startAt)
     audio.src = currentTrack.url
     audio.load()
     audio.volume = volume
-
-    if (isPlaying) {
-      setLoading(true)
-      void audio.play().catch(() => {
-        setLoading(false)
-        setIsPlaying(false)
-        setAudioError('Playback was blocked. Press play once to start the stream.')
-      })
-    }
-  }, [currentTrack.url])
+  }, [currentTrack.id, currentTrack.url, currentTrack.startAt, currentTrack.endAt])
 
   useEffect(() => {
     const audio = audioRef.current
@@ -1720,6 +1793,9 @@ export default function App() {
     if (!audio) return
 
     if (audio.paused) {
+      if (audio.currentTime < currentTrack.startAt || audio.currentTime >= currentTrack.endAt) {
+        audio.currentTime = currentTrack.startAt
+      }
       setLoading(true)
       setAudioError('')
       void audio.play().then(() => setIsPlaying(true)).catch(() => {
@@ -1732,7 +1808,7 @@ export default function App() {
       setIsPlaying(false)
       setLoading(false)
     }
-  }, [])
+  }, [currentTrack.startAt, currentTrack.endAt])
 
   const selectTrack = useCallback((index: number) => {
     if (index === currentTrackIndex) {
@@ -1751,9 +1827,11 @@ export default function App() {
   const seek = useCallback((time: number) => {
     const audio = audioRef.current
     if (!audio || !Number.isFinite(time)) return
-    audio.currentTime = time
-    setCurrentTime(time)
-  }, [])
+    const segmentDuration = currentTrack.endAt - currentTrack.startAt
+    const relativeTime = Math.max(0, Math.min(segmentDuration, time))
+    audio.currentTime = currentTrack.startAt + relativeTime
+    setCurrentTime(relativeTime)
+  }, [currentTrack.startAt, currentTrack.endAt])
 
   const setVolume = useCallback((value: number) => {
     setVolumeState(Math.max(0, Math.min(1, value)))
@@ -1810,14 +1888,36 @@ export default function App() {
         ref={audioRef}
         preload="metadata"
         onLoadStart={() => setLoading(true)}
+        onLoadedMetadata={(event) => {
+          const audio = event.currentTarget
+          audio.currentTime = currentTrack.startAt
+          setCurrentTime(0)
+          setDuration(currentTrack.endAt - currentTrack.startAt)
+          if (isPlaying) {
+            setLoading(true)
+            void audio.play().catch(() => {
+              setLoading(false)
+              setIsPlaying(false)
+              setAudioError('Playback was blocked. Press play once to start the stream.')
+            })
+          }
+        }}
         onCanPlay={() => setLoading(false)}
         onPlaying={() => {
           setIsPlaying(true)
           setLoading(false)
         }}
         onPause={() => setIsPlaying(false)}
-        onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
-        onDurationChange={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
+        onTimeUpdate={(event) => {
+          const absoluteTime = event.currentTarget.currentTime
+          if (absoluteTime >= currentTrack.endAt - 0.15 && !segmentAdvanceRef.current) {
+            segmentAdvanceRef.current = true
+            nextTrack()
+            return
+          }
+          setCurrentTime(Math.max(0, Math.min(currentTrack.endAt - currentTrack.startAt, absoluteTime - currentTrack.startAt)))
+        }}
+        onDurationChange={() => setDuration(currentTrack.endAt - currentTrack.startAt)}
         onEnded={nextTrack}
         onError={() => {
           setLoading(false)
