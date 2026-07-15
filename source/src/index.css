@@ -247,3 +247,26 @@ textarea:focus-visible {
 .qr-crisp {
   image-rendering: pixelated;
 }
+
+body {
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+@supports (height: 100dvh) {
+  html,
+  body,
+  #root {
+    height: 100dvh;
+  }
+}
+
+@media (display-mode: standalone) {
+  body {
+    background: #020617;
+  }
+
+  .panel-scroll {
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+  }
+}

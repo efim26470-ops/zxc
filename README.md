@@ -1,62 +1,62 @@
-# quietpress — GitHub Pages edition
+# quietpress — GitHub Pages + iOS PWA
 
-A full-screen React/Vite vinyl-label site with a catalogue, artists, sound diary, cart, a large CC0 music player and a manual СБП checkout.
+A static React/Vite music-label site prepared for GitHub Pages. The repository root contains the compiled site; editable sources are in `source/`.
 
-## Fast deployment: Deploy from a branch
+## What changed
 
-1. Upload the contents of this folder to the root of the repository.
+- payment recipient template is saved automatically in `localStorage` when checkout opens;
+- completed manual checkout saves an order receipt and unlocks purchased music on the current device;
+- each of the four releases unlocks 255 full three-minute cuts;
+- unpurchased cuts play as 30-second previews;
+- Playback Salon now has **All tracks**, **Purchased**, and **Favorites** filters;
+- purchased releases show an **Owned** badge in Anthology;
+- favicon, Apple Touch icon, 192/512 PWA icons, maskable icons and a web app manifest were added;
+- a service worker and iPhone safe-area adjustments were added;
+- the app can be installed from Safari with **Share → Add to Home Screen**.
+
+## Important payment limitation
+
+This is still a static GitHub Pages project. A browser cannot create a template inside the T-Bank app or securely verify that a bank transfer arrived. The current flow:
+
+1. saves the T-Bank/phone template inside quietpress on this device;
+2. opens the official T-Bank transfer page and provides copy buttons for number and amount;
+3. unlocks the purchased tracks only after the buyer presses **“Я оплатил · добавить музыку”**;
+4. stores the receipt and owned releases in this browser.
+
+For automatic payment confirmation, connect T-Business acquiring/SBP and verify bank notifications on a backend or serverless function. Do not place acquiring secrets in GitHub Pages source code.
+
+## Recipient and test pricing
+
+- Bank: **Т-Банк**
+- Phone: **+7 952 926-21-55**
+- Test release prices: **10 ₽, 35 ₽, 70 ₽, 100 ₽**
+
+## Deploy from a branch
+
+1. Upload the contents of this archive to the repository root.
 2. Open **Settings → Pages**.
 3. Select **Deploy from a branch**.
-4. Choose `main` and `/ (root)`.
-5. Save and wait for the Pages deployment to finish.
-
-The repository root already contains the compiled static site. GitHub does not need to compile TypeScript for this deployment mode.
+4. Select `main` and `/ (root)`.
+5. Save and wait for publication.
 
 ## GitHub Actions deployment
 
 The included `.github/workflows/deploy-pages.yml` builds the editable project from `source/`. In **Settings → Pages**, select **GitHub Actions** to use it.
 
-## Music library
+## iPhone installation
 
-Playback Salon contains **1,020 playable three-minute cuts across 34 genres**. They are sliced from 55+ hours of the **New Midnight Cassette System** recordings by Frank Edward Nora.
+1. Open the published site in Safari.
+2. Tap **Share**.
+3. Tap **Add to Home Screen**.
+4. Confirm **Add**.
 
-The source collection is released under **CC0 1.0** and explicitly permits editing, cutting, commercial use and non-commercial use. The player includes:
-
-- search and 34 genre filters;
-- favorites stored in `localStorage`;
-- previous/next controls;
-- seeking inside every three-minute cut;
-- automatic transition to the next cut;
-- progressive rendering in groups of 72 so the 1,020-track catalogue remains responsive.
-
-The 1,020 entries are separate playable cuts from 34 long generative recordings, not 1,020 independently released songs.
-
-Source: https://archive.org/details/New_Midnight_Cassette_System
-
-## СБП checkout
-
-Test prices remain between **10 ₽ and 100 ₽**.
-
-Recipient details:
-
-- Bank: **Т-Банк**
-- Phone: **+7 952 926-21-55**
-
-The previous QR contained plain text, so banking applications could not process it as a payment. The corrected checkout now:
-
-- generates a QR that opens the official Т-Банк transfer page;
-- separately copies the recipient phone, amount or all order details;
-- opens the official transfer page after copying the phone;
-- requires the payer to verify the recipient name inside the banking application;
-- does not falsely claim that a payment was automatically verified.
-
-A universal one-tap СБП payment QR cannot be derived from only a phone number. It must contain an official payment token/link issued by the bank or acquiring service. When such a link is available, paste it into `SBP_OFFICIAL_PAYMENT_URL` in `source/src/App.tsx`; the same checkout and QR will then use it automatically.
+The installed PWA uses the quietpress icon, standalone display mode, iPhone safe areas and local storage for favorites, payment template, receipts and purchased music.
 
 ## Local development
 
 ```bash
 cd source
-npm install
+npm ci
 npm run dev
 ```
 
@@ -65,5 +65,3 @@ Production build:
 ```bash
 npm run build
 ```
-
-Copy the contents of `source/dist/` to the repository root when using branch deployment.

@@ -9,3 +9,11 @@ if (!rootElement) {
 }
 
 createRoot(rootElement).render(<App />)
+
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('./service-worker.js').catch((error) => {
+      console.warn('quietpress service worker registration failed', error)
+    })
+  })
+}
