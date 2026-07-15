@@ -3,6 +3,9 @@ import {
   AudioLines,
   BookOpen,
   Check,
+  Copy,
+  CreditCard,
+  Download,
   Disc3,
   ExternalLink,
   Heart,
@@ -12,7 +15,9 @@ import {
   Pause,
   Play,
   Plus,
+  QrCode,
   Search,
+  ShieldCheck,
   ShoppingBag,
   ShoppingCart,
   SkipBack,
@@ -25,11 +30,20 @@ import {
   X,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import QRCode from 'qrcode'
 
 const VIDEO_URL =
   'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260611_183632_c311af08-e4b7-458f-81e7-79847a49b3d3.mp4'
 
 const ARCHIVE_SOURCE = 'https://archive.org/details/New_Midnight_Cassette_System'
+const TRACK_SOURCE_BASE = 'https://archive.org/download/New_Midnight_Cassette_System'
+
+const SBP_RECIPIENT = {
+  bank: 'Т-Банк',
+  phone: '+79529262155',
+  phoneDisplay: '+7 952 926-21-55',
+  name: 'Ефим Железкин',
+} as const
 
 type View = 'home' | 'anthology' | 'talents' | 'sound-diary' | 'playback-salon' | 'cart'
 type CatalogMode = 'all' | 'latest'
@@ -61,56 +75,60 @@ type DiaryEntry = {
   createdAt: string
 }
 
-const TRACKS: Track[] = [
-  {
-    id: 'ambient-27',
-    title: 'Ambient Tape No. 27',
-    artist: 'Frank Edward Nora',
-    genre: 'Ambient',
-    note: 'Long-form generative ambience',
-    url: 'https://archive.org/download/New_Midnight_Cassette_System/New_Midnight_Cassette_27_Ambient.mp3',
-  },
-  {
-    id: 'new-age-26',
-    title: 'New Age Tape No. 26',
-    artist: 'Frank Edward Nora',
-    genre: 'New age',
-    note: 'Soft synthesizer drift',
-    url: 'https://archive.org/download/New_Midnight_Cassette_System/New_Midnight_Cassette_26_NewAge.mp3',
-  },
-  {
-    id: 'downbeat-09',
-    title: 'Downbeat Tape No. 09',
-    artist: 'Frank Edward Nora',
-    genre: 'Downbeat',
-    note: 'Slow pulse and muted electronics',
-    url: 'https://archive.org/download/New_Midnight_Cassette_System/New_Midnight_Cassette_09_Downbeat.mp3',
-  },
-  {
-    id: 'bossa-25',
-    title: 'Bossa Tape No. 25',
-    artist: 'Frank Edward Nora',
-    genre: 'Bossa',
-    note: 'Warm, unhurried rhythm',
-    url: 'https://archive.org/download/New_Midnight_Cassette_System/New_Midnight_Cassette_25_Bossa.mp3',
-  },
-  {
-    id: 'trip-hop-28',
-    title: 'Trip Hop Tape No. 28',
-    artist: 'Frank Edward Nora',
-    genre: 'Trip hop',
-    note: 'Dusty nocturnal beat study',
-    url: 'https://archive.org/download/New_Midnight_Cassette_System/New_Midnight_Cassette_28_TripHop.mp3',
-  },
-  {
-    id: 'cool-mix-34',
-    title: 'Cool Mix Tape No. 34',
-    artist: 'Frank Edward Nora',
-    genre: 'Electronic',
-    note: 'A loose late-night sequence',
-    url: 'https://archive.org/download/New_Midnight_Cassette_System/New_Midnight_Cassette_34_CoolMix.mp3',
-  },
-]
+type PaymentReceipt = {
+  id: string
+  amount: number
+  createdAt: string
+  bank: string
+  phone: string
+  recipient: string
+}
+
+const TRACK_LIBRARY = [
+  ['neo-hip-hop-01', 'Neo Hip-Hop Tape No. 01', 'Hip-hop', 'Airy beats and algorithmic sample cuts', '01_NeoHipHop'],
+  ['neo-rap-02', 'Neo Rap Tape No. 02', 'Rap', 'Forward electronic rap patterns', '02_NeoRap'],
+  ['neo-hard-rap-03', 'Neo Hard Rap Tape No. 03', 'Hard rap', 'Heavier drums and angular low-end', '03_NeoHardRap'],
+  ['neo-rnb-04', 'Neo R&B Tape No. 04', 'R&B', 'Smooth synthetic soul sketches', '04_NeoRnB'],
+  ['old-hip-hop-05', 'Old Hip-Hop Tape No. 05', 'Old-school hip-hop', 'Dusty boom-bap inspired loops', '05_OldHipHop'],
+  ['old-rap-06', 'Old Rap Tape No. 06', 'Old-school rap', 'Classic drum-machine cadence', '06_OldRap'],
+  ['old-hard-rap-07', 'Old Hard Rap Tape No. 07', 'Hardcore rap', 'Raw, forceful rhythm studies', '07_OldHardRap'],
+  ['old-rnb-08', 'Old R&B Tape No. 08', 'Classic R&B', 'Warm chords and relaxed grooves', '08_OldRnB'],
+  ['downbeat-09', 'Downbeat Tape No. 09', 'Downbeat', 'Slow pulse and muted electronics', '09_Downbeat'],
+  ['drum-bass-10', 'Drum & Bass Tape No. 10', 'Drum & bass', 'Fast breaks with rolling sub-bass', '10_DnBass'],
+  ['electro-dnb-11', 'Electro D&B Tape No. 11', 'Electro D&B', 'Bright circuitry and rapid breaks', '11_ElectroDnB'],
+  ['dirty-dnb-12', 'Dirty D&B Tape No. 12', 'Dirty D&B', 'Distorted bass pressure and hard breaks', '12_DirtyDnB'],
+  ['jungle-13', 'Jungle Tape No. 13', 'Jungle', 'Chopped breaks and restless momentum', '13_Jungle'],
+  ['house-14', 'House Tape No. 14', 'House', 'Four-on-the-floor generative club motion', '14_House'],
+  ['easy-house-15', 'Easy House Tape No. 15', 'Easy house', 'Soft house grooves for daylight listening', '15_EzHouse'],
+  ['hard-house-16', 'Hard House Tape No. 16', 'Hard house', 'Sharper kicks and energetic synth stabs', '16_HardHouse'],
+  ['garage-17', 'Garage Tape No. 17', 'Garage', 'Loose swing and compact bass figures', '17_Garage'],
+  ['uk-garage-18', 'UK Garage Tape No. 18', 'UK garage', 'Skippy percussion and elastic rhythm', '18_UKGarage'],
+  ['trance-19', 'Trance Tape No. 19', 'Trance', 'Wide pads and continuous propulsion', '19_Trance'],
+  ['manga-20', 'Manga Tape No. 20', 'Manga pop', 'Bright melodic electronic vignettes', '20_Manga'],
+  ['ragga-21', 'Ragga Tape No. 21', 'Ragga', 'Digital dancehall-inspired motion', '21_Ragga'],
+  ['classic-rock-22', 'Classic Rock Tape No. 22', 'Classic rock', 'Generative riffs and steady live-band energy', '22_ClassicRock'],
+  ['pop-rock-23', 'Pop Rock Tape No. 23', 'Pop rock', 'Accessible hooks and bright guitar shapes', '23_PopRock'],
+  ['ballad-24', 'Ballad Tape No. 24', 'Ballad', 'Slow melodic arrangements and open space', '24_Ballad'],
+  ['bossa-25', 'Bossa Tape No. 25', 'Bossa nova', 'Warm, unhurried rhythm', '25_Bossa'],
+  ['new-age-26', 'New Age Tape No. 26', 'New age', 'Soft synthesizer drift', '26_NewAge'],
+  ['ambient-27', 'Ambient Tape No. 27', 'Ambient', 'Long-form generative ambience', '27_Ambient'],
+  ['trip-hop-28', 'Trip-Hop Tape No. 28', 'Trip-hop', 'Dusty nocturnal beat study', '28_TripHop'],
+  ['mad-metal-29', 'Mad Metal Tape No. 29', 'Metal', 'Aggressive algorithmic guitar textures', '29_MadMetal'],
+  ['mad-30', 'Mad Tape No. 30', 'Experimental', 'Unpredictable genre-crossing structures', '30_Mad'],
+  ['urban-mix-31', 'Urban Mix Tape No. 31', 'Urban mix', 'Hybrid beats moving across city styles', '31_UrbanMix'],
+  ['dub-mix-32', 'Dub Mix Tape No. 32', 'Dub', 'Echo-heavy low-end and spacious rhythm', '32_DubMix'],
+  ['techno-mix-33', 'Techno Mix Tape No. 33', 'Techno', 'Mechanical pulse and dark repetition', '33_TechnoMix'],
+  ['cool-mix-34', 'Cool Mix Tape No. 34', 'Electronic mix', 'A loose late-night sequence', '34_CoolMix'],
+] as const
+
+const TRACKS: Track[] = TRACK_LIBRARY.map(([id, title, genre, note, file]) => ({
+  id,
+  title,
+  artist: 'Frank Edward Nora',
+  genre,
+  note,
+  url: `${TRACK_SOURCE_BASE}/New_Midnight_Cassette_${file}.mp3`,
+}))
 
 const PRESSINGS: Pressing[] = [
   {
@@ -119,7 +137,7 @@ const PRESSINGS: Pressing[] = [
     artist: 'Helia Marsh',
     edition: 'Press 04 · 120 copies',
     year: 2026,
-    price: 34,
+    price: 10,
     latest: true,
     gradient: 'radial-gradient(circle at 28% 20%, #d9f99d 0, #4d7c0f 34%, #071a13 78%)',
   },
@@ -129,7 +147,7 @@ const PRESSINGS: Pressing[] = [
     artist: 'North Window',
     edition: 'Press 03 · 180 copies',
     year: 2026,
-    price: 31,
+    price: 35,
     latest: true,
     gradient: 'radial-gradient(circle at 72% 22%, #bae6fd 0, #1d4ed8 35%, #07152d 78%)',
   },
@@ -139,7 +157,7 @@ const PRESSINGS: Pressing[] = [
     artist: 'Mara Low',
     edition: 'Press 02 · 150 copies',
     year: 2025,
-    price: 29,
+    price: 70,
     latest: false,
     gradient: 'radial-gradient(circle at 26% 28%, #fef3c7 0, #a16207 38%, #201407 82%)',
   },
@@ -149,7 +167,7 @@ const PRESSINGS: Pressing[] = [
     artist: 'Ivo Vale',
     edition: 'Press 01 · 90 copies',
     year: 2025,
-    price: 38,
+    price: 100,
     latest: false,
     gradient: 'radial-gradient(circle at 66% 22%, #ddd6fe 0, #6d28d9 38%, #16072d 80%)',
   },
@@ -160,28 +178,28 @@ const ARTISTS = [
     name: 'Helia Marsh',
     role: 'Field recordings · drone',
     bio: 'Moss-level recordings, low strings and patient tape loops gathered along the Baltic coast.',
-    trackIndex: 0,
+    trackIndex: 26,
     monogram: 'HM',
   },
   {
     name: 'North Window',
     role: 'Ambient electronics',
     bio: 'Slow voltage studies shaped around weather reports, room tone and small analogue systems.',
-    trackIndex: 1,
+    trackIndex: 25,
     monogram: 'NW',
   },
   {
     name: 'Mara Low',
     role: 'Acoustic minimalism',
     bio: 'Sparse guitar figures and close-mic textures that leave silence in the foreground.',
-    trackIndex: 3,
+    trackIndex: 24,
     monogram: 'ML',
   },
   {
     name: 'Ivo Vale',
     role: 'Nocturnal rhythm',
     bio: 'Dusty percussion, dub-space and low-lit melodic fragments for late playback sessions.',
-    trackIndex: 4,
+    trackIndex: 27,
     monogram: 'IV',
   },
 ]
@@ -225,6 +243,30 @@ function writeStorage<T>(key: string, value: T) {
   } catch {
     // The site remains usable when storage is unavailable.
   }
+}
+
+function formatRubles(value: number) {
+  return new Intl.NumberFormat('ru-RU', {
+    style: 'currency',
+    currency: 'RUB',
+    maximumFractionDigits: 0,
+  }).format(value)
+}
+
+async function copyText(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value)
+    return
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = value
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  document.body.appendChild(textarea)
+  textarea.select()
+  document.execCommand('copy')
+  textarea.remove()
 }
 
 function formatTime(value: number) {
@@ -809,7 +851,7 @@ function AnthologyPanel({ mode, setMode, cart, addToCart, close }: AnthologyPane
                   <h3 className="truncate text-base">{pressing.title}</h3>
                   <p className="truncate text-xs text-white/55">{pressing.artist}</p>
                 </div>
-                <span className="rounded-lg bg-white/10 px-2 py-1 text-xs">€{pressing.price}</span>
+                <span className="rounded-lg bg-white/10 px-2 py-1 text-xs">{formatRubles(pressing.price)}</span>
               </div>
               <p className="mt-3 text-xs text-white/50">{pressing.edition}</p>
               <button
@@ -1050,18 +1092,21 @@ function PlaybackSalon({
 }: PlaybackSalonProps) {
   const [query, setQuery] = useState('')
   const [favoritesOnly, setFavoritesOnly] = useState(false)
+  const [genreFilter, setGenreFilter] = useState('All')
   const currentTrack = TRACKS[currentTrackIndex]
+  const genres = useMemo(() => ['All', ...Array.from(new Set(TRACKS.map((track) => track.genre)))], [])
 
   const filteredTracks = TRACKS.map((track, index) => ({ track, index })).filter(({ track }) => {
     const matchesQuery = `${track.title} ${track.artist} ${track.genre}`
       .toLowerCase()
       .includes(query.toLowerCase())
     const matchesFavorites = !favoritesOnly || favorites.includes(track.id)
-    return matchesQuery && matchesFavorites
+    const matchesGenre = genreFilter === 'All' || track.genre === genreFilter
+    return matchesQuery && matchesFavorites && matchesGenre
   })
 
   return (
-    <PanelShell eyebrow="CC0 listening room" title="Playback salon" icon={<Music2 size={19} />} close={close}>
+    <PanelShell eyebrow="34 public-domain genre sessions" title="Playback salon" icon={<Music2 size={19} />} close={close}>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,.9fr)_minmax(320px,.55fr)]">
         <section className="min-w-0">
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -1085,7 +1130,29 @@ function PlaybackSalon({
             </button>
           </div>
 
-          <div className="mt-4 space-y-2">
+          <div className="genre-scroll mt-3 flex gap-2 overflow-x-auto pb-2" aria-label="Genre filters">
+            {genres.map((genre) => (
+              <button
+                key={genre}
+                type="button"
+                onClick={() => setGenreFilter(genre)}
+                className={`shrink-0 rounded-xl px-3 py-2 text-xs transition-colors ${
+                  genreFilter === genre
+                    ? 'bg-white text-gray-900'
+                    : 'bg-white/10 text-white/65 hover:bg-white/[0.15] hover:text-white'
+                }`}
+              >
+                {genre}
+              </button>
+            ))}
+          </div>
+
+          <div className="mb-3 mt-1 flex items-center justify-between text-xs text-white/45">
+            <span>{filteredTracks.length} of {TRACKS.length} tracks</span>
+            <span>{favorites.length} favorites</span>
+          </div>
+
+          <div className="space-y-2">
             {filteredTracks.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-white/15 px-5 py-12 text-center text-sm text-white/50">
                 No tracks match this view.
@@ -1252,25 +1319,94 @@ type CartPanelProps = {
 
 function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
   const [complete, setComplete] = useState(false)
+  const [paymentOpen, setPaymentOpen] = useState(false)
+  const [qrDataUrl, setQrDataUrl] = useState('')
+  const [qrError, setQrError] = useState('')
+  const [copied, setCopied] = useState<'phone' | 'details' | ''>('')
+  const [orderId] = useState(() => `QP-${Date.now().toString(36).toUpperCase().slice(-7)}`)
   const items = PRESSINGS.filter((pressing) => cart[pressing.id])
   const total = items.reduce((sum, pressing) => sum + pressing.price * cart[pressing.id], 0)
+  const itemCount = items.reduce((sum, item) => sum + cart[item.id], 0)
 
-  const checkout = () => {
-    if (items.length === 0) return
-    setComplete(true)
+  const paymentPayload = useMemo(
+    () =>
+      [
+        'quietpress · тестовый перевод по СБП',
+        `Заказ: ${orderId}`,
+        `Сумма: ${total} RUB`,
+        `Банк получателя: ${SBP_RECIPIENT.bank}`,
+        `Телефон: ${SBP_RECIPIENT.phone}`,
+        `Получатель: ${SBP_RECIPIENT.name}`,
+        'Назначение: quietpress order',
+      ].join('\n'),
+    [orderId, total],
+  )
+
+  useEffect(() => {
+    if (!paymentOpen || total <= 0) return
+
+    let active = true
+    setQrDataUrl('')
+    setQrError('')
+
+    void QRCode.toDataURL(paymentPayload, {
+      errorCorrectionLevel: 'M',
+      margin: 2,
+      width: 640,
+      color: {
+        dark: '#111827',
+        light: '#ffffff',
+      },
+    })
+      .then((dataUrl) => {
+        if (active) setQrDataUrl(dataUrl)
+      })
+      .catch(() => {
+        if (active) setQrError('Не удалось создать QR-код. Используйте кнопку копирования реквизитов.')
+      })
+
+    return () => {
+      active = false
+    }
+  }, [paymentOpen, paymentPayload, total])
+
+  const handleCopy = async (kind: 'phone' | 'details') => {
+    try {
+      await copyText(kind === 'phone' ? SBP_RECIPIENT.phone : paymentPayload)
+      setCopied(kind)
+      window.setTimeout(() => setCopied(''), 1600)
+    } catch {
+      setCopied('')
+    }
+  }
+
+  const confirmPayment = () => {
+    const receipts = readStorage<PaymentReceipt[]>('quietpress-sbp-receipts-v1', [])
+    const receipt: PaymentReceipt = {
+      id: orderId,
+      amount: total,
+      createdAt: new Date().toISOString(),
+      bank: SBP_RECIPIENT.bank,
+      phone: SBP_RECIPIENT.phone,
+      recipient: SBP_RECIPIENT.name,
+    }
+    writeStorage('quietpress-sbp-receipts-v1', [receipt, ...receipts].slice(0, 20))
     clearCart()
+    setPaymentOpen(false)
+    setComplete(true)
   }
 
   return (
-    <PanelShell eyebrow="Local demo basket" title="Cart" icon={<ShoppingBag size={19} />} close={close}>
+    <PanelShell eyebrow="Basket and test checkout" title="Cart" icon={<ShoppingBag size={19} />} close={close}>
       {complete ? (
         <div className="mx-auto flex max-w-lg flex-col items-center rounded-3xl bg-white/10 px-6 py-14 text-center ring-1 ring-white/10">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-blue-700">
             <Check size={24} />
           </div>
-          <h3 className="mt-5 text-2xl">Reservation recorded</h3>
+          <h3 className="mt-5 text-2xl">Payment marked as sent</h3>
           <p className="mt-2 max-w-sm text-sm leading-relaxed text-white/60">
-            This is a static demo, so no payment was taken. The local cart has been cleared.
+            Order {orderId} was saved locally. Because this site has no banking backend, the receipt
+            is not automatically verified.
           </p>
           <button
             type="button"
@@ -1279,6 +1415,131 @@ function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
           >
             Return home
           </button>
+        </div>
+      ) : paymentOpen ? (
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,.85fr)_minmax(320px,.65fr)]">
+          <section className="rounded-3xl bg-white/[0.08] p-4 ring-1 ring-white/10 sm:p-6">
+            <button
+              type="button"
+              onClick={() => setPaymentOpen(false)}
+              className="mb-5 flex items-center gap-2 text-sm text-white/65 transition-colors hover:text-white"
+            >
+              <ArrowLeft size={15} /> Back to cart
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-700 text-white">
+                <CreditCard size={19} />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-white/45">СБП · тестовая оплата</p>
+                <h3 className="text-xl">Перевод по номеру телефона</h3>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-3 rounded-2xl bg-black/[0.15] p-4 ring-1 ring-white/10">
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="text-white/45">Сумма</span>
+                <strong className="text-lg">{formatRubles(total)}</strong>
+              </div>
+              <div className="h-px bg-white/10" />
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="text-white/45">Банк</span>
+                <span>{SBP_RECIPIENT.bank}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="text-white/45">Телефон</span>
+                <span>{SBP_RECIPIENT.phoneDisplay}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="text-white/45">Получатель</span>
+                <span className="text-right">{SBP_RECIPIENT.name}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="text-white/45">Заказ</span>
+                <span>{orderId}</span>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => void handleCopy('phone')}
+                className="flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm text-gray-900 transition-transform duration-200 hover:scale-[1.02] active:scale-[.98]"
+              >
+                {copied === 'phone' ? <Check size={15} /> : <Copy size={15} />}
+                {copied === 'phone' ? 'Номер скопирован' : 'Копировать номер'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCopy('details')}
+                className="flex items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-3 text-sm text-white ring-1 ring-white/10 transition-transform duration-200 hover:scale-[1.02] active:scale-[.98]"
+              >
+                {copied === 'details' ? <Check size={15} /> : <Copy size={15} />}
+                {copied === 'details' ? 'Реквизиты скопированы' : 'Копировать всё'}
+              </button>
+            </div>
+
+            <a
+              href="https://www.tbank.ru/"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-300 px-4 py-3 text-sm text-gray-950 transition-transform duration-200 hover:scale-[1.02] active:scale-[.98]"
+            >
+              Открыть сайт Т-Банка <ExternalLink size={14} />
+            </a>
+
+            <div className="mt-5 flex items-start gap-3 rounded-2xl bg-amber-300/10 p-4 text-xs leading-relaxed text-amber-50 ring-1 ring-amber-200/20">
+              <ShieldCheck size={17} className="mt-0.5 shrink-0" />
+              <p>
+                Перед переводом обязательно проверьте имя получателя в банковском приложении. Это
+                статический тестовый checkout: сайт не видит операцию и не подтверждает поступление денег.
+              </p>
+            </div>
+          </section>
+
+          <aside className="h-fit rounded-3xl bg-white p-5 text-gray-900 shadow-2xl sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400">Payment details QR</p>
+                <h3 className="mt-1 text-lg">Scan with a phone</h3>
+              </div>
+              <QrCode size={22} className="text-blue-700" />
+            </div>
+
+            <div className="mt-5 aspect-square overflow-hidden rounded-3xl bg-gray-100 p-3 ring-1 ring-gray-200">
+              {qrDataUrl ? (
+                <img src={qrDataUrl} alt={`QR payment details for ${formatRubles(total)}`} className="h-full w-full rounded-2xl object-contain qr-crisp" />
+              ) : qrError ? (
+                <div className="flex h-full items-center justify-center p-5 text-center text-sm text-red-600">{qrError}</div>
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-gray-400">Creating QR…</div>
+              )}
+            </div>
+
+            <p className="mt-4 text-xs leading-relaxed text-gray-500">
+              QR stores the recipient, phone, bank, amount and order number. It is not an official
+              merchant QR issued by the bank, so the transfer is completed manually through СБП.
+            </p>
+
+            {qrDataUrl && (
+              <a
+                href={qrDataUrl}
+                download={`quietpress-${orderId}.png`}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                <Download size={15} /> Download QR
+              </a>
+            )}
+
+            <button
+              type="button"
+              onClick={confirmPayment}
+              className="mt-2 w-full rounded-xl bg-blue-700 py-3 text-sm text-white transition-transform duration-200 hover:scale-[1.02] active:scale-[.98]"
+            >
+              Я оплатил · сохранить заказ
+            </button>
+          </aside>
         </div>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -1298,7 +1559,7 @@ function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
                   <div className="min-w-0 flex-1">
                     <h3 className="truncate text-sm">{pressing.title}</h3>
                     <p className="truncate text-xs text-white/45">{pressing.artist}</p>
-                    <p className="mt-2 text-xs text-white/65">€{pressing.price} each</p>
+                    <p className="mt-2 text-xs text-white/65">{formatRubles(pressing.price)} each</p>
                   </div>
                   <div className="flex items-center rounded-xl bg-white text-gray-900">
                     <button
@@ -1326,24 +1587,25 @@ function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
 
           <aside className="h-fit rounded-3xl bg-white p-5 text-gray-900 shadow-xl">
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-gray-500">
-              <Sparkles size={14} /> Order note
+              <Sparkles size={14} /> Test order
             </div>
             <div className="mt-5 space-y-3 text-sm">
-              <div className="flex justify-between"><span className="text-gray-500">Items</span><span>{items.reduce((sum, item) => sum + cart[item.id], 0)}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Shipping</span><span>Calculated later</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Items</span><span>{itemCount}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Price range</span><span>10–100 ₽</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Payment</span><span>СБП · Т-Банк</span></div>
               <div className="h-px bg-gray-200" />
-              <div className="flex justify-between text-base"><span>Total</span><strong>€{total}</strong></div>
+              <div className="flex justify-between text-base"><span>Total</span><strong>{formatRubles(total)}</strong></div>
             </div>
             <button
               type="button"
-              onClick={checkout}
+              onClick={() => setPaymentOpen(true)}
               disabled={items.length === 0}
-              className="mt-5 w-full rounded-xl bg-blue-700 py-3 text-sm text-white transition-transform duration-200 enabled:hover:scale-[1.02] enabled:active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40"
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 py-3 text-sm text-white transition-transform duration-200 enabled:hover:scale-[1.02] enabled:active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Reserve pressings
+              <QrCode size={16} /> Pay by SBP QR
             </button>
             <p className="mt-3 text-center text-[10px] leading-relaxed text-gray-400">
-              Demonstration checkout only. No backend or payment processor is connected.
+              Test prices only. Payment confirmation is stored locally and is not checked by a server.
             </p>
           </aside>
         </div>
@@ -1351,6 +1613,7 @@ function CartPanel({ cart, changeQuantity, clearCart, close }: CartPanelProps) {
     </PanelShell>
   )
 }
+
 
 export default function App() {
   const audioRef = useRef<HTMLAudioElement>(null)

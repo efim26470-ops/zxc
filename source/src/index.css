@@ -234,3 +234,16 @@ textarea:focus-visible {
     padding-top: 7rem !important;
   }
 }
+
+.genre-scroll {
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+.genre-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.qr-crisp {
+  image-rendering: pixelated;
+}
