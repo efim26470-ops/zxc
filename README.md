@@ -1,42 +1,39 @@
-# quietpress hero — GitHub Pages edition
+# quietpress — GitHub Pages fixed edition
 
-A full-screen static hero built with React, TypeScript, Tailwind CSS, Vite, and `lucide-react`.
+This repository works with either GitHub Pages publishing mode:
 
-## Deploy to GitHub Pages
+## Recommended: Deploy from a branch
 
-1. Create a new GitHub repository.
-2. Upload all files from this project to the repository root.
+1. Upload **all files and folders from this archive** to the repository root.
+2. Delete old repository files first, especially the previous root `index.html` and `src` folder.
 3. Open **Settings → Pages**.
-4. Under **Build and deployment**, select **GitHub Actions** as the source.
-5. Push or commit to the `main` or `master` branch.
-6. Open the **Actions** tab and wait for the **Deploy quietpress to GitHub Pages** workflow to complete.
+4. Under **Build and deployment**, choose **Deploy from a branch**.
+5. Select `main` (or `master`) and `/ (root)`, then save.
 
-The deployed site will be available at one of these addresses:
+The repository root contains a precompiled static site, so GitHub Pages does not need to process TypeScript or Vite source files.
 
-- `https://USERNAME.github.io/`
-- `https://USERNAME.github.io/REPOSITORY/`
+## Alternative: GitHub Actions
 
-No repository-name edit is required. Vite uses relative asset paths through `base: './'`, so the same build works at both root and project Pages URLs.
+Under **Settings → Pages**, choose **GitHub Actions**. The included workflow builds the editable Vite project from `source/` and deploys `source/dist`.
 
-## Run locally
+## Editing the React/Vite source
+
+The editable project is in `source/`:
 
 ```bash
+cd source
 npm install
 npm run dev
 ```
 
-## Test the production build
+After editing, rebuild with:
 
 ```bash
 npm run build
-npm run preview
 ```
 
-## Included GitHub Pages support
+For branch-based deployment, copy everything from `source/dist/` back to the repository root.
 
-- Automatic deployment with `.github/workflows/deploy-pages.yml`
-- Relative Vite asset paths for repository subfolders
-- `public/.nojekyll` to disable Jekyll processing
-- A prebuilt `dist` directory
+## Why the previous version showed a white screen
 
-The CloudFront background video is loaded directly in the browser. After its first playback, supported browsers capture frames and switch to the canvas-based boomerang loop.
+The old root `index.html` referenced `/src/main.tsx`. GitHub Pages serves static files and cannot compile TSX when using **Deploy from a branch**, leaving the React root empty. This edition puts compiled JavaScript and CSS directly in the root.
